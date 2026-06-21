@@ -30,7 +30,7 @@ function LoginGate({ password, onLogin }: { password: string; onLogin: () => voi
             onChange={(e) => { setPw(e.target.value); setErr(false); }}
             placeholder="Enter admin password"
             className="w-full border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2"
-            style={{ borderColor: err ? "#d92020" : "var(--color-line)", focusRingColor: "var(--color-saffron)" }}
+            style={{ borderColor: err ? "#d92020" : "var(--color-line)" }}
             autoFocus
           />
           {err && <p className="text-xs text-red-600 font-medium">Incorrect password. Try again.</p>}
@@ -266,9 +266,6 @@ function GalleryTab() {
 
   const updateField = (id: string, field: keyof CMSGalleryPhoto, val: string) =>
     updateCMS((p) => ({ ...p, gallery: p.gallery.map((ph) => ph.id === id ? { ...ph, [field]: val } : ph) }));
-
-  const srcLabel = (src: string) =>
-    src.startsWith("data:") ? "📎 Uploaded image" : src || "—";
 
   return (
     <div>
