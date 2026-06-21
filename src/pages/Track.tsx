@@ -12,12 +12,18 @@ export default function Track() {
   const [params, setParams] = useSearchParams();
   const [id, setId] = useState(params.get("id") ?? "");
   const [result, setResult] = useState<Case | "none" | null>(null);
+  const [searching, setSearching] = useState(false);
 
-  const run = (value: string) => {
+  const run = async (value: string) => {
     const v = value.trim();
     if (!v) return;
-    const c = getCase(v);
-    setResult(c ?? "none");
+    setSearching(true);
+    try {
+      const c = await getCase(v);
+      setResult(c ?? "none");
+    } finally {
+      setSearching(false);
+    }
   };
 
   // auto-run if arriving with ?id=
@@ -49,7 +55,7 @@ export default function Track() {
                 style={{ border: "1px solid var(--color-line)" }}
               />
             </div>
-            <button type="submit" className="rounded-xl px-6 font-semibold text-white" style={{ background: "var(--color-saffron)" }}>{t("tr.button")}</button>
+            <button type="submit" disabled={searching} className="rounded-xl px-6 font-semibold text-white disabled:opacity-60" style={{ background: "var(--color-saffron)" }}>{searching ? "…" : t("tr.button")}</button>
           </form>
 
           {result === "none" && (

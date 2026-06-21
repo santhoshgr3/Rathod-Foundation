@@ -17,13 +17,14 @@ export default function SeekHelp() {
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [ticket, setTicket] = useState<Case | null>(null);
   const [copied, setCopied] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cat) return;
+    if (!cat || submitting) return;
     const errs: Record<string, boolean> = {};
     if (!form.name.trim()) errs.name = true;
     if (!/^[+\d][\d\s-]{7,}$/.test(form.phone.trim())) errs.phone = true;
@@ -31,9 +32,14 @@ export default function SeekHelp() {
     if (!form.details.trim()) errs.details = true;
     setErrors(errs);
     if (Object.keys(errs).length) return;
-    const c = createCase({ type: "help", category: cat, name: form.name.trim(), phone: form.phone.trim(), location: form.location.trim(), details: form.details.trim(), lang });
-    setTicket(c);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setSubmitting(true);
+    try {
+      const c = await createCase({ type: "help", category: cat, name: form.name.trim(), phone: form.phone.trim(), location: form.location.trim(), details: form.details.trim(), lang });
+      setTicket(c);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const copy = () => {
@@ -154,9 +160,9 @@ export default function SeekHelp() {
                     <Field label={t("f.details")} error={errors.details} hint={t("f.required")}>
                       <textarea rows={4} className={inputCls(errors.details) + " resize-none"} value={form.details} onChange={set("details")} />
                     </Field>
-                    <button type="submit" className="group w-full inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-semibold text-white transition-transform hover:scale-[1.01]" style={{ background: "var(--color-saffron)" }}>
-                      {t("sh.getNumber")}
-                      <Icon.arrow className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                    <button type="submit" disabled={submitting} className="group w-full inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-semibold text-white transition-transform hover:scale-[1.01] disabled:opacity-60" style={{ background: "var(--color-saffron)" }}>
+                      {submitting ? "Submitting…" : t("sh.getNumber")}
+                      {!submitting && <Icon.arrow className="w-4 h-4 transition-transform group-hover:translate-x-1" />}
                     </button>
                   </form>
                 </motion.div>

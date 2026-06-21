@@ -43,16 +43,24 @@ function VolunteerForm() {
   const [done, setDone] = useState(false);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  const submit = (e: React.FormEvent) => {
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     const errs: Record<string, boolean> = {};
     if (!form.name.trim()) errs.name = true;
     if (!/^[+\d][\d\s-]{7,}$/.test(form.phone.trim())) errs.phone = true;
     if (!form.area.trim()) errs.area = true;
     setErrors(errs);
     if (Object.keys(errs).length) return;
-    saveVolunteer({ name: form.name.trim(), phone: form.phone.trim(), area: form.area.trim(), skills: form.skills.trim() });
-    setDone(true);
+    setBusy(true);
+    try {
+      await saveVolunteer({ name: form.name.trim(), phone: form.phone.trim(), area: form.area.trim(), skills: form.skills.trim() });
+      setDone(true);
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (done) {
@@ -78,8 +86,8 @@ function VolunteerForm() {
         </div>
         <Field label="Your area / ward" error={errors.area}><input className={inputCls(errors.area)} value={form.area} onChange={set("area")} placeholder="e.g. Road No. 12, Banjara Hills" /></Field>
         <Field label="How would you like to help? (optional)"><textarea rows={3} className={inputCls(false) + " resize-none"} value={form.skills} onChange={set("skills")} placeholder="e.g. field visits, paperwork help, medical, teaching, driving…" /></Field>
-        <button type="submit" className="group w-full inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-semibold text-white transition-transform hover:scale-[1.01]" style={{ background: "var(--color-saffron)" }}>
-          Join as a volunteer <Icon.arrow className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+        <button type="submit" disabled={busy} className="group w-full inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-semibold text-white transition-transform hover:scale-[1.01] disabled:opacity-60" style={{ background: "var(--color-saffron)" }}>
+          {busy ? "Submitting…" : <>Join as a volunteer <Icon.arrow className="w-4 h-4 transition-transform group-hover:translate-x-1" /></>}
         </button>
       </form>
     </div>
@@ -90,10 +98,10 @@ function SuggestForm() {
   const [text, setText] = useState("");
   const [area, setArea] = useState("");
   const [done, setDone] = useState(false);
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim()) return;
-    saveSuggestion({ kind: "issue", text: text.trim(), area: area.trim() });
+    await saveSuggestion({ kind: "issue", text: text.trim(), area: area.trim() });
     setDone(true);
     setText(""); setArea("");
     setTimeout(() => setDone(false), 2600);

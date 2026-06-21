@@ -10,6 +10,11 @@ tsconfig.tsbuildinfo
 .DS_Store
 .vite
 
+# environment (secrets) — keep .env.example committed, .env ignored
+.env
+.env.*
+!.env.example
+
 # local editor / tooling config
 .claude/
 

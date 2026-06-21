@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import Hero from "../components/Hero";
 import PromiseStrip from "../components/PromiseStrip";
 import { CountUp, Icon, Reveal, SectionHead, SpotlightCard } from "../components/ui";
 import { helpCategories } from "../data/help";
 import { useT } from "../lib/i18n";
-import { getStats } from "../lib/store";
+import { getStats, type Stats } from "../lib/store";
 
 const vision = {
   en: "No family should be left unheard. Rathod Foundation connects people in need with volunteers who verify concerns, guide beneficiaries, and help resolve issues with dignity and transparency.",
@@ -22,7 +23,13 @@ const exploreCards = [
 
 export default function Home() {
   const { t, lang } = useT();
-  const stats = getStats();
+  const [stats, setStats] = useState<Stats>({ received: 0, verified: 0, resolved: 0, volunteers: 0, wards: 0, byCategory: [] });
+
+  useEffect(() => {
+    let alive = true;
+    getStats().then((s) => { if (alive) setStats(s); });
+    return () => { alive = false; };
+  }, []);
 
   return (
     <>

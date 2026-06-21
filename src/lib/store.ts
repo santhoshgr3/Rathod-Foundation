@@ -1,9 +1,12 @@
 // ============================================================================
-//  Rathod Foundation — client-side data store.
-//  Everything persists to localStorage so the platform fully works with no
-//  backend. To go live, swap the read/write helpers for Supabase calls — the
-//  shapes below map 1:1 to database tables.
+//  Rathod Foundation — data store.
+//  Primary backend: Supabase (when configured via .env). If Supabase is not
+//  configured or a call fails, every function transparently falls back to
+//  localStorage so the app keeps working offline / before the SQL is run.
+//  All read/write functions are async.
 // ============================================================================
+
+import { supabase, supabaseEnabled } from "./supabase";
 
 export type Lang = "en" | "te" | "hi";
 
@@ -17,22 +20,20 @@ export const STAGES = [
 ] as const;
 
 export type StageKey = (typeof STAGES)[number]["key"];
-
 export type CaseType = "help" | "civic";
-
 export type TimelineEntry = { stage: StageKey; at: string; note?: string };
 
 export type Case = {
   id: string;
   type: CaseType;
-  category: string; // category id (see data/help.ts) or civic category
+  category: string;
   name: string;
   phone: string;
   location: string;
   details: string;
   lang: Lang;
-  stageIndex: number; // 0..4 into STAGES
-  outcome?: "resolved" | "guided"; // resolved directly, or guided to a govt office
+  stageIndex: number;
+  outcome?: "resolved" | "guided";
   createdAt: string;
   timeline: TimelineEntry[];
 };
@@ -54,6 +55,7 @@ export type Suggestion = {
   createdAt: string;
 };
 
+// ---- localStorage fallback keys --------------------------------------------
 const K_CASES = "rf_cases_v2";
 const K_VOL = "rf_volunteers_v1";
 const K_SUG = "rf_suggestions_v1";
@@ -82,13 +84,59 @@ export function makeTrackingId(prefix = "RF"): string {
   return `${prefix}-${year}-${seq}-${rand}`;
 }
 
-// ---- seed data (so the dashboard & map feel alive on first visit) ----------
+// ---- row <-> Case mapping (Supabase uses snake_case) -----------------------
+type CaseRow = {
+  id: string;
+  type: CaseType;
+  category: string;
+  name: string;
+  phone: string;
+  location: string;
+  details: string;
+  lang: Lang;
+  stage_index: number;
+  outcome: "resolved" | "guided" | null;
+  timeline: TimelineEntry[] | null;
+  created_at: string;
+};
+
+function rowToCase(r: CaseRow): Case {
+  return {
+    id: r.id,
+    type: r.type,
+    category: r.category,
+    name: r.name ?? "",
+    phone: r.phone ?? "",
+    location: r.location ?? "",
+    details: r.details ?? "",
+    lang: (r.lang as Lang) ?? "en",
+    stageIndex: r.stage_index ?? 0,
+    outcome: r.outcome ?? undefined,
+    createdAt: r.created_at,
+    timeline: Array.isArray(r.timeline) ? r.timeline : [],
+  };
+}
+
+// ---- localStorage seed (only used when Supabase is unavailable) ------------
 function daysAgo(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
   return d.toISOString();
 }
-
+function seed(type: CaseType, category: string, name: string, location: string, stageIndex: number, ago: number, outcome?: "resolved" | "guided"): Case {
+  const timeline: TimelineEntry[] = [];
+  for (let i = 0; i <= stageIndex; i++) {
+    timeline.push({ stage: STAGES[i].key, at: daysAgo(ago - i * 2 > 0 ? ago - i * 2 : 0) });
+  }
+  return {
+    id: makeTrackingId(),
+    type, category, name, phone: "", location, details: "", lang: "en",
+    stageIndex,
+    outcome: stageIndex >= 4 ? outcome ?? "resolved" : undefined,
+    createdAt: daysAgo(ago),
+    timeline,
+  };
+}
 const SEED: Case[] = [
   seed("help", "medical", "Lakshmi B.", "Road No. 12", 4, 18),
   seed("help", "pension", "Ramulu N.", "N.B. Nagar", 4, 12, "guided"),
@@ -104,40 +152,42 @@ const SEED: Case[] = [
   seed("civic", "Drainage & sewage", "Resident", "Journalist Colony", 4, 33),
 ];
 
-function seed(type: CaseType, category: string, name: string, location: string, stageIndex: number, ago: number, outcome?: "resolved" | "guided"): Case {
-  const id = makeTrackingId(type === "civic" ? "RF" : "RF");
-  const timeline: TimelineEntry[] = [];
-  for (let i = 0; i <= stageIndex; i++) {
-    timeline.push({ stage: STAGES[i].key, at: daysAgo(ago - i * 2 > 0 ? ago - i * 2 : 0) });
+// ============================================================================
+//  CASES
+// ============================================================================
+export async function listCases(): Promise<Case[]> {
+  if (supabaseEnabled && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("cases")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data as CaseRow[]).map(rowToCase);
+    } catch (e) {
+      console.warn("[store] listCases falling back to localStorage:", e);
+    }
   }
-  return {
-    id,
-    type,
-    category,
-    name,
-    phone: "",
-    location,
-    details: "",
-    lang: "en",
-    stageIndex,
-    outcome: stageIndex >= 4 ? outcome ?? "resolved" : undefined,
-    createdAt: daysAgo(ago),
-    timeline,
-  };
+  return [...read<Case[]>(K_CASES, []), ...SEED];
 }
 
-// ---- cases ------------------------------------------------------------------
-export function listCases(): Case[] {
-  const user = read<Case[]>(K_CASES, []);
-  return [...user, ...SEED];
-}
-
-export function getCase(id: string): Case | undefined {
+export async function getCase(id: string): Promise<Case | undefined> {
   const norm = id.trim().toUpperCase();
-  return listCases().find((c) => c.id.toUpperCase() === norm);
+  if (supabaseEnabled && supabase) {
+    try {
+      const { data, error } = await supabase.from("cases").select("*");
+      if (error) throw error;
+      return (data as CaseRow[]).map(rowToCase).find((c) => c.id.toUpperCase() === norm);
+    } catch (e) {
+      console.warn("[store] getCase falling back to localStorage:", e);
+    }
+  }
+  return [...read<Case[]>(K_CASES, []), ...SEED].find((c) => c.id.toUpperCase() === norm);
 }
 
-export function createCase(input: Omit<Case, "id" | "stageIndex" | "createdAt" | "timeline">): Case {
+export async function createCase(
+  input: Omit<Case, "id" | "stageIndex" | "createdAt" | "timeline">
+): Promise<Case> {
   const now = new Date().toISOString();
   const c: Case = {
     ...input,
@@ -146,58 +196,137 @@ export function createCase(input: Omit<Case, "id" | "stageIndex" | "createdAt" |
     createdAt: now,
     timeline: [{ stage: "received", at: now, note: "Submitted online" }],
   };
+
+  if (supabaseEnabled && supabase) {
+    try {
+      const { error } = await supabase.from("cases").insert({
+        id: c.id,
+        type: c.type,
+        category: c.category,
+        name: c.name,
+        phone: c.phone,
+        location: c.location,
+        details: c.details,
+        lang: c.lang,
+        stage_index: c.stageIndex,
+        outcome: c.outcome ?? null,
+        timeline: c.timeline,
+        created_at: c.createdAt,
+      });
+      if (error) throw error;
+      return c;
+    } catch (e) {
+      console.warn("[store] createCase falling back to localStorage:", e);
+    }
+  }
+
   const user = read<Case[]>(K_CASES, []);
   user.unshift(c);
   write(K_CASES, user);
   return c;
 }
 
-// ---- volunteers & suggestions ----------------------------------------------
-export function saveVolunteer(input: Omit<Volunteer, "id" | "createdAt">): Volunteer {
-  const v: Volunteer = { ...input, id: makeTrackingId("VOL"), createdAt: new Date().toISOString() };
-  const all = read<Volunteer[]>(K_VOL, []);
-  all.unshift(v);
-  write(K_VOL, all);
-  return v;
-}
-export function listVolunteers(): Volunteer[] {
-  return read<Volunteer[]>(K_VOL, []);
-}
+export async function updateCaseStage(id: string, stageIndex: number, note?: string): Promise<boolean> {
+  const clamped = Math.min(Math.max(stageIndex, 0), STAGES.length - 1);
 
-export function saveSuggestion(input: Omit<Suggestion, "id" | "createdAt">): Suggestion {
-  const s: Suggestion = { ...input, id: makeTrackingId("SUG"), createdAt: new Date().toISOString() };
-  const all = read<Suggestion[]>(K_SUG, []);
-  all.unshift(s);
-  write(K_SUG, all);
-  return s;
-}
+  if (supabaseEnabled && supabase) {
+    try {
+      const { data: existing, error: readErr } = await supabase
+        .from("cases")
+        .select("timeline")
+        .eq("id", id)
+        .single();
+      if (readErr) throw readErr;
+      const timeline: TimelineEntry[] = Array.isArray((existing as { timeline?: TimelineEntry[] })?.timeline)
+        ? (existing as { timeline: TimelineEntry[] }).timeline
+        : [];
+      timeline.push({ stage: STAGES[clamped].key, at: new Date().toISOString(), note: note || "Updated by admin" });
+      const { error } = await supabase
+        .from("cases")
+        .update({
+          stage_index: clamped,
+          timeline,
+          outcome: clamped >= 4 ? "resolved" : null,
+        })
+        .eq("id", id);
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.warn("[store] updateCaseStage falling back to localStorage:", e);
+    }
+  }
 
-// ---- admin case management --------------------------------------------------
-export function updateCaseStage(id: string, stageIndex: number, note?: string): boolean {
   const all = read<Case[]>(K_CASES, []);
   const idx = all.findIndex((c) => c.id.toUpperCase() === id.toUpperCase());
-  if (idx === -1) return false; // seed cases are not in K_CASES — can't update
+  if (idx === -1) return false;
   const c = { ...all[idx] };
-  c.stageIndex = Math.min(Math.max(stageIndex, 0), STAGES.length - 1);
-  c.timeline = [
-    ...c.timeline,
-    { stage: STAGES[c.stageIndex].key, at: new Date().toISOString(), note: note || "Updated by admin" },
-  ];
+  c.stageIndex = clamped;
+  c.timeline = [...c.timeline, { stage: STAGES[clamped].key, at: new Date().toISOString(), note: note || "Updated by admin" }];
   if (c.stageIndex >= 4) c.outcome = c.outcome ?? "resolved";
   all[idx] = c;
   write(K_CASES, all);
   return true;
 }
 
-export function deleteCase(id: string): boolean {
-  const all = read<Case[]>(K_CASES, []);
-  const filtered = all.filter((c) => c.id.toUpperCase() !== id.toUpperCase());
-  if (filtered.length === all.length) return false;
-  write(K_CASES, filtered);
-  return true;
+// ============================================================================
+//  VOLUNTEERS & SUGGESTIONS
+// ============================================================================
+export async function saveVolunteer(input: Omit<Volunteer, "id" | "createdAt">): Promise<Volunteer> {
+  const v: Volunteer = { ...input, id: makeTrackingId("VOL"), createdAt: new Date().toISOString() };
+  if (supabaseEnabled && supabase) {
+    try {
+      const { error } = await supabase.from("volunteers").insert({
+        id: v.id, name: v.name, phone: v.phone, area: v.area, skills: v.skills, created_at: v.createdAt,
+      });
+      if (error) throw error;
+      return v;
+    } catch (e) {
+      console.warn("[store] saveVolunteer falling back to localStorage:", e);
+    }
+  }
+  const all = read<Volunteer[]>(K_VOL, []);
+  all.unshift(v);
+  write(K_VOL, all);
+  return v;
 }
 
-// ---- aggregate stats for the dashboard -------------------------------------
+export async function listVolunteers(): Promise<Volunteer[]> {
+  if (supabaseEnabled && supabase) {
+    try {
+      const { data, error } = await supabase.from("volunteers").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data as Array<Volunteer & { created_at: string }>).map((r) => ({
+        id: r.id, name: r.name, phone: r.phone, area: r.area, skills: r.skills, createdAt: r.created_at,
+      }));
+    } catch (e) {
+      console.warn("[store] listVolunteers falling back to localStorage:", e);
+    }
+  }
+  return read<Volunteer[]>(K_VOL, []);
+}
+
+export async function saveSuggestion(input: Omit<Suggestion, "id" | "createdAt">): Promise<Suggestion> {
+  const s: Suggestion = { ...input, id: makeTrackingId("SUG"), createdAt: new Date().toISOString() };
+  if (supabaseEnabled && supabase) {
+    try {
+      const { error } = await supabase.from("suggestions").insert({
+        id: s.id, kind: s.kind, text: s.text, area: s.area, created_at: s.createdAt,
+      });
+      if (error) throw error;
+      return s;
+    } catch (e) {
+      console.warn("[store] saveSuggestion falling back to localStorage:", e);
+    }
+  }
+  const all = read<Suggestion[]>(K_SUG, []);
+  all.unshift(s);
+  write(K_SUG, all);
+  return s;
+}
+
+// ============================================================================
+//  AGGREGATE STATS (dashboard)
+// ============================================================================
 const BASE_VOLUNTEERS = 48; // standing volunteer network
 const BASE_WARDS = 7;
 
@@ -210,8 +339,8 @@ export type Stats = {
   byCategory: { category: string; count: number }[];
 };
 
-export function getStats(): Stats {
-  const cases = listCases();
+export async function getStats(): Promise<Stats> {
+  const [cases, volunteers] = await Promise.all([listCases(), listVolunteers()]);
   const verified = cases.filter((c) => c.stageIndex >= 2).length;
   const resolved = cases.filter((c) => c.stageIndex >= 4).length;
   const byMap = new Map<string, number>();
@@ -227,7 +356,7 @@ export function getStats(): Stats {
     received: cases.length,
     verified,
     resolved,
-    volunteers: BASE_VOLUNTEERS + listVolunteers().length,
+    volunteers: BASE_VOLUNTEERS + volunteers.length,
     wards: Math.max(BASE_WARDS, wardSet.size),
     byCategory,
   };

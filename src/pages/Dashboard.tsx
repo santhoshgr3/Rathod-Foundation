@@ -1,15 +1,29 @@
 import { motion } from "framer-motion";
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import PageHeader from "../components/PageHeader";
 import { CountUp, Icon, Reveal } from "../components/ui";
 import { categoryLabel } from "../data/help";
 import { useT } from "../lib/i18n";
-import { getStats, listCases, STAGES } from "../lib/store";
+import { getStats, listCases, STAGES, type Case, type Stats } from "../lib/store";
+
+const EMPTY_STATS: Stats = { received: 0, verified: 0, resolved: 0, volunteers: 0, wards: 0, byCategory: [] };
 
 export default function Dashboard() {
   const { t, lang } = useT();
-  const stats = useMemo(() => getStats(), []);
-  const recent = useMemo(() => listCases().slice(0, 6), []);
+  const [stats, setStats] = useState<Stats>(EMPTY_STATS);
+  const [recent, setRecent] = useState<Case[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const [s, cases] = await Promise.all([getStats(), listCases()]);
+      if (!alive) return;
+      setStats(s);
+      setRecent(cases.slice(0, 6));
+    })();
+    return () => { alive = false; };
+  }, []);
+
   const maxCat = Math.max(...stats.byCategory.map((c) => c.count), 1);
 
   const cards = [

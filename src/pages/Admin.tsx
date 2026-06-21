@@ -1,8 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useCMS } from "../contexts/CMSContext";
 import { uid, type CMSGalleryPhoto, type CMSTimelineEntry, type CMSWard, type CMSStat, type CMSWorkCase } from "../lib/cms";
-import { listCases, listVolunteers, updateCaseStage, STAGES } from "../lib/store";
+import { listCases, listVolunteers, updateCaseStage, STAGES, type Case as CaseT, type Volunteer as VolunteerT } from "../lib/store";
 
 // ── Auth gate ─────────────────────────────────────────────────────────────────
 function LoginGate({ password, onLogin }: { password: string; onLogin: () => void }) {
@@ -78,8 +78,17 @@ function SaveBanner({ saved }: { saved: boolean }) {
 
 // ── Tab: Overview ─────────────────────────────────────────────────────────────
 function OverviewTab() {
-  const cases = listCases();
-  const volunteers = listVolunteers();
+  const [cases, setCases] = useState<CaseT[]>([]);
+  const [volunteers, setVolunteers] = useState<VolunteerT[]>([]);
+  useEffect(() => {
+    let alive = true;
+    Promise.all([listCases(), listVolunteers()]).then(([c, v]) => {
+      if (!alive) return;
+      setCases(c);
+      setVolunteers(v);
+    });
+    return () => { alive = false; };
+  }, []);
   const resolved = cases.filter((c) => c.stageIndex >= 4).length;
 
   const cards = [
@@ -685,13 +694,19 @@ function BiographyTab() {
 
 // ── Tab: Submissions ──────────────────────────────────────────────────────────
 function SubmissionsTab() {
-  const cases = listCases();
-  const [stageMap, setStageMap] = useState<Record<string, number>>({});
+  const [cases, setCases] = useState<CaseT[]>([]);
   const [saved, setSaved] = useState(false);
 
-  const updateStage = (id: string, newStage: number) => {
-    if (updateCaseStage(id, newStage)) {
-      setStageMap((p) => ({ ...p, [id]: newStage }));
+  useEffect(() => {
+    let alive = true;
+    listCases().then((c) => { if (alive) setCases(c); });
+    return () => { alive = false; };
+  }, []);
+
+  const updateStage = async (id: string, newStage: number) => {
+    const ok = await updateCaseStage(id, newStage);
+    if (ok) {
+      setCases((prev) => prev.map((c) => (c.id === id ? { ...c, stageIndex: newStage } : c)));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     }
@@ -703,7 +718,7 @@ function SubmissionsTab() {
       <h2 className="text-xl font-display font-bold mb-2">Submitted Cases</h2>
       <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>
         {cases.length} cases total. Update the stage to move a case through the verification pipeline.
-        <br /><span className="text-xs">Note: Seed/demo cases cannot be edited — only user-submitted ones.</span>
+        <br /><span className="text-xs">Updates save to Supabase when configured; otherwise to this browser.</span>
       </p>
 
       <div className="overflow-x-auto">
@@ -720,7 +735,7 @@ function SubmissionsTab() {
           </thead>
           <tbody>
             {cases.slice(0, 30).map((c) => {
-              const currentStage = stageMap[c.id] ?? c.stageIndex;
+              const currentStage = c.stageIndex;
               return (
                 <tr key={c.id} className="border-t" style={{ borderColor: "var(--color-line)" }}>
                   <td className="py-2 pr-4 font-mono text-xs" style={{ color: "var(--color-saffron-text)" }}>{c.id}</td>
@@ -754,7 +769,12 @@ function SubmissionsTab() {
 
 // ── Tab: Volunteers ───────────────────────────────────────────────────────────
 function VolunteersTab() {
-  const volunteers = listVolunteers();
+  const [volunteers, setVolunteers] = useState<VolunteerT[]>([]);
+  useEffect(() => {
+    let alive = true;
+    listVolunteers().then((v) => { if (alive) setVolunteers(v); });
+    return () => { alive = false; };
+  }, []);
 
   return (
     <div>
