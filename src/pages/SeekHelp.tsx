@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import { Icon, Reveal } from "../components/ui";
@@ -7,7 +7,178 @@ import { categoryLabel, helpCategories } from "../data/help";
 import { useCMS } from "../contexts/CMSContext";
 import { useT } from "../lib/i18n";
 import { createCase, STAGES, type Case } from "../lib/store";
+import type { Lang } from "../lib/store";
 
+// ── Minimal SpeechRecognition interface (not in all TS DOM libs) ─────────────
+interface ISpeechRecognition extends EventTarget {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((e: ISpeechRecognitionEvent) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+}
+interface ISpeechRecognitionResult { readonly [i: number]: { transcript: string }; isFinal: boolean }
+interface ISpeechRecognitionEvent { resultIndex: number; results: { [i: number]: ISpeechRecognitionResult; length: number } }
+type SRConstructor = new () => ISpeechRecognition;
+function getSR(): SRConstructor | null {
+  return (window as unknown as { SpeechRecognition?: SRConstructor; webkitSpeechRecognition?: SRConstructor }).SpeechRecognition
+    || (window as unknown as { webkitSpeechRecognition?: SRConstructor }).webkitSpeechRecognition
+    || null;
+}
+
+// ── language → BCP-47 locale for SpeechRecognition ──────────────────────────
+const LANG_LOCALE: Record<Lang, string> = { en: "en-IN", te: "te-IN", hi: "hi-IN" };
+
+// ── Voice input component ────────────────────────────────────────────────────
+function VoiceInput({ lang, onTranscript }: { lang: Lang; onTranscript: (text: string) => void }) {
+  const [mode, setMode] = useState<"idle" | "listening" | "recorded">("idle");
+  const [live, setLive] = useState("");
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [hasSpeech, setHasSpeech] = useState(true);
+
+  const recogRef = useRef<ISpeechRecognition | null>(null);
+  const mediaRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  useEffect(() => { setHasSpeech(!!getSR()); }, []);
+
+  const label = {
+    idle:      { en: "🎤 Speak your problem", te: "🎤 మీ సమస్య చెప్పండి", hi: "🎤 अपनी समस्या बोलें" },
+    listening: { en: "🔴 Listening… tap to stop", te: "🔴 వింటున్నాం… ఆపడానికి నొక్కండి", hi: "🔴 सुन रहे हैं… रोकने के लिए टैप करें" },
+    recorded:  { en: "✅ Voice recorded", te: "✅ వాయిస్ రికార్డ్ అయింది", hi: "✅ आवाज़ रिकॉर्ड हो गई" },
+  }[mode][lang];
+
+  const startListening = async () => {
+    setLive("");
+    setAudioUrl(null);
+    setMode("listening");
+
+    const SR = getSR();
+    if (SR) {
+      const recog = new SR();
+      recogRef.current = recog;
+      recog.lang = LANG_LOCALE[lang];
+      recog.continuous = true;
+      recog.interimResults = true;
+
+      let finalText = "";
+      recog.onresult = (e: ISpeechRecognitionEvent) => {
+        let interim = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const txt = e.results[i][0].transcript;
+          if (e.results[i].isFinal) finalText += txt + " ";
+          else interim = txt;
+        }
+        setLive(finalText + interim);
+      };
+      recog.onerror = () => stopListening();
+      recog.onend = () => {
+        if (finalText.trim()) {
+          onTranscript(finalText.trim());
+          setMode("recorded");
+        } else {
+          setMode("idle");
+        }
+        setLive("");
+      };
+      recog.start();
+    } else {
+      // Fallback: audio recording only
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        chunksRef.current = [];
+        const mr = new MediaRecorder(stream);
+        mediaRef.current = mr;
+        mr.ondataavailable = (e) => chunksRef.current.push(e.data);
+        mr.onstop = () => {
+          const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+          setAudioUrl(URL.createObjectURL(blob));
+          setMode("recorded");
+          stream.getTracks().forEach((t) => t.stop());
+        };
+        mr.start();
+      } catch {
+        setMode("idle");
+      }
+    }
+  };
+
+  const stopListening = () => {
+    recogRef.current?.stop();
+    mediaRef.current?.stop();
+  };
+
+  const reset = () => {
+    recogRef.current?.abort();
+    mediaRef.current?.stop();
+    setMode("idle");
+    setLive("");
+    setAudioUrl(null);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => () => { recogRef.current?.abort(); mediaRef.current?.stop(); }, []);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={mode === "listening" ? stopListening : startListening}
+          className={`flex-1 flex items-center justify-center gap-2.5 rounded-xl py-3.5 font-semibold text-sm transition-all ${mode === "listening" ? "animate-pulse" : "hover:scale-[1.01]"}`}
+          style={{
+            background: mode === "listening" ? "#d92020" : mode === "recorded" ? "var(--color-green)" : "var(--color-saffron-tint)",
+            color: mode === "listening" ? "#fff" : mode === "recorded" ? "#fff" : "var(--color-saffron-text)",
+            border: mode === "idle" ? "2px dashed var(--color-saffron)" : "none",
+          }}
+        >
+          {mode === "listening" ? (
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          ) : (
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="9" y="2" width="6" height="12" rx="3"/>
+              <path d="M5 10a7 7 0 0 0 14 0M12 19v3M9 22h6"/>
+            </svg>
+          )}
+          {label}
+        </button>
+        {mode !== "idle" && (
+          <button
+            type="button"
+            onClick={reset}
+            className="w-11 h-11 rounded-xl flex items-center justify-center text-lg shrink-0"
+            style={{ background: "var(--color-saffron-tint)", color: "var(--color-saffron-text)" }}
+            title="Clear voice"
+          >✕</button>
+        )}
+      </div>
+
+      {/* Live transcript preview */}
+      {mode === "listening" && live && (
+        <div className="rounded-xl p-3 text-sm italic border" style={{ background: "var(--color-saffron-tint)", borderColor: "var(--color-saffron)", color: "var(--color-ink)" }}>
+          {live}
+        </div>
+      )}
+
+      {/* Audio playback (fallback path) */}
+      {audioUrl && (
+        <audio controls src={audioUrl} className="w-full rounded-xl" />
+      )}
+
+      {!hasSpeech && mode === "idle" && (
+        <p className="text-xs" style={{ color: "var(--color-muted)" }}>
+          {lang === "te" ? "మీ బ్రౌజర్‌లో వాయిస్ టు టెక్స్ట్ లేదు — ఆడియో రికార్డ్ చేస్తాం." : lang === "hi" ? "आपके ब्राउज़र में आवाज़-से-टेक्स्ट नहीं है — ऑडियो रिकॉर्ड होगा।" : "Your browser doesn't support voice-to-text — audio will be recorded instead."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Main page ────────────────────────────────────────────────────────────────
 export default function SeekHelp() {
   const { t, lang } = useT();
   const { cms: { leader } } = useCMS();
@@ -20,6 +191,7 @@ export default function SeekHelp() {
   const [copied, setCopied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [inputMode, setInputMode] = useState<"type" | "voice">("type");
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -32,7 +204,7 @@ export default function SeekHelp() {
         try {
           const { latitude: lat, longitude: lon } = pos.coords;
           const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
-          const data = await res.json() as { display_name?: string; address?: { road?: string; suburb?: string; city?: string; state?: string } };
+          const data = await res.json() as { display_name?: string; address?: { road?: string; suburb?: string; city?: string } };
           const addr = data.address;
           const readable = [addr?.road, addr?.suburb, addr?.city].filter(Boolean).join(", ") || data.display_name || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
           setForm((f) => ({ ...f, location: readable }));
@@ -96,7 +268,6 @@ export default function SeekHelp() {
                 </button>
               </div>
 
-              {/* what happens next — the verification workflow */}
               <div className="mt-7 text-left rounded-2xl p-5" style={{ background: "var(--color-green-tint)" }}>
                 <div className="font-semibold mb-3">What happens next</div>
                 <ol className="space-y-2 text-sm" style={{ color: "var(--color-muted)" }}>
@@ -170,6 +341,7 @@ export default function SeekHelp() {
                     <Icon.hand className="w-4 h-4" /> {categoryLabel(cat, lang)}
                   </div>
                   <h2 className="font-display font-bold text-xl">{t("sh.formTitle")}</h2>
+
                   <form onSubmit={submit} className="mt-5 space-y-4">
                     <div className="grid sm:grid-cols-2 gap-4">
                       <Field label={t("f.name")} error={errors.name} hint={t("f.required")}>
@@ -179,6 +351,7 @@ export default function SeekHelp() {
                         <input className={inputCls(errors.phone)} value={form.phone} onChange={set("phone")} inputMode="tel" placeholder="+91 9xxxxxxxxx" />
                       </Field>
                     </div>
+
                     <Field label={t("f.location")} error={errors.location} hint={t("f.required")}>
                       <div className="flex gap-2">
                         <input className={inputCls(errors.location) + " flex-1"} value={form.location} onChange={set("location")} placeholder="Road No. 12, Banjara Hills" />
@@ -199,13 +372,60 @@ export default function SeekHelp() {
                         </button>
                       </div>
                     </Field>
-                    <Field label={t("f.details")} error={errors.details} hint={t("f.required")}>
-                      <textarea rows={4} className={inputCls(errors.details) + " resize-none"} value={form.details} onChange={set("details")} />
-                    </Field>
+
+                    {/* Details — text OR voice */}
+                    <div>
+                      <span className="text-sm font-semibold block mb-1.5">{t("f.details")} <span className="font-normal text-xs" style={{ color: "var(--color-muted)" }}>*</span></span>
+
+                      {/* Tab switcher: Type / Speak */}
+                      <div className="flex rounded-xl overflow-hidden border mb-2" style={{ borderColor: "var(--color-line)" }}>
+                        {(["type", "voice"] as const).map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setInputMode(m)}
+                            className="flex-1 py-2 text-sm font-semibold transition-colors"
+                            style={{
+                              background: inputMode === m ? "var(--color-saffron)" : "#fff",
+                              color: inputMode === m ? "#fff" : "var(--color-muted)",
+                            }}
+                          >
+                            {m === "type"
+                              ? (lang === "te" ? "⌨️ టైప్ చేయండి" : lang === "hi" ? "⌨️ टाइप करें" : "⌨️ Type")
+                              : (lang === "te" ? "🎤 మాట్లాడండి" : lang === "hi" ? "🎤 बोलें" : "🎤 Speak")}
+                          </button>
+                        ))}
+                      </div>
+
+                      {inputMode === "type" ? (
+                        <textarea
+                          rows={4}
+                          className={inputCls(errors.details) + " resize-none"}
+                          value={form.details}
+                          onChange={set("details")}
+                          placeholder={lang === "te" ? "మీ సమస్య వివరంగా రాయండి…" : lang === "hi" ? "अपनी समस्या विस्तार से लिखें…" : "Describe your problem in detail…"}
+                        />
+                      ) : (
+                        <VoiceInput
+                          lang={lang}
+                          onTranscript={(text) => {
+                            setForm((f) => ({ ...f, details: f.details ? f.details + " " + text : text }));
+                          }}
+                        />
+                      )}
+                      {errors.details && (
+                        <span className="text-xs text-red-600 mt-1 block">{t("f.required")}</span>
+                      )}
+                    </div>
 
                     {/* Photo upload */}
                     <div>
-                      <span className="text-sm font-semibold block mb-1.5">📷 {lang === "te" ? "ఫోటో జోడించండి" : lang === "hi" ? "फोटो जोड़ें" : "Add a photo"} <span className="font-normal text-xs" style={{ color: "var(--color-muted)" }}>({lang === "te" ? "ఐచ్ఛికం" : lang === "hi" ? "वैकल्पिक" : "optional"})</span></span>
+                      <span className="text-sm font-semibold block mb-1.5">
+                        📷 {lang === "te" ? "ఫోటో జోడించండి" : lang === "hi" ? "फोटो जोड़ें" : "Add a photo"}{" "}
+                        <span className="font-normal text-xs" style={{ color: "var(--color-muted)" }}>
+                          ({lang === "te" ? "ఐచ్ఛికం" : lang === "hi" ? "वैकल्पिक" : "optional"})
+                        </span>
+                      </span>
                       {photo ? (
                         <div className="relative rounded-xl overflow-hidden border" style={{ borderColor: "var(--color-line)" }}>
                           <img src={photo} alt="Uploaded" className="w-full max-h-48 object-cover" />
@@ -214,7 +434,9 @@ export default function SeekHelp() {
                       ) : (
                         <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed cursor-pointer py-6 transition-colors hover:bg-[var(--color-saffron-tint)]" style={{ borderColor: "var(--color-line)" }}>
                           <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: "var(--color-muted)" }}><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-                          <span className="text-sm font-semibold" style={{ color: "var(--color-muted)" }}>{lang === "te" ? "ఇక్కడ నొక్కి ఫోటో తీయండి" : lang === "hi" ? "यहाँ टैप करें और फ़ोटो लें" : "Tap to take a photo or upload"}</span>
+                          <span className="text-sm font-semibold" style={{ color: "var(--color-muted)" }}>
+                            {lang === "te" ? "ఇక్కడ నొక్కి ఫోటో తీయండి" : lang === "hi" ? "यहाँ टैप करें और फ़ोटो लें" : "Tap to take a photo or upload"}
+                          </span>
                           <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
@@ -225,6 +447,7 @@ export default function SeekHelp() {
                         </label>
                       )}
                     </div>
+
                     <button type="submit" disabled={submitting} className="group w-full inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-semibold text-white transition-transform hover:scale-[1.01] disabled:opacity-60" style={{ background: "var(--color-saffron)" }}>
                       {submitting ? "Submitting…" : t("sh.getNumber")}
                       {!submitting && <Icon.arrow className="w-4 h-4 transition-transform group-hover:translate-x-1" />}
@@ -254,6 +477,7 @@ function Field({ label, children, error, hint }: { label: string; children: Reac
     </label>
   );
 }
+
 function inputCls(error?: boolean) {
   return [
     "w-full rounded-xl px-3.5 py-2.5 text-sm outline-none transition-shadow bg-white",
