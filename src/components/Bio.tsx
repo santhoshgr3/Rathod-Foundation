@@ -1,4 +1,5 @@
 import { useCMS } from "../contexts/CMSContext";
+import { chairman } from "../data/content";
 import { Icon, Reveal, SectionHead } from "./ui";
 
 const valueIcons = { shield: Icon.shield, clock: Icon.clock, users: Icon.users };
@@ -66,6 +67,34 @@ export default function Bio() {
             </div>
           </div>
         </div>
+
+        {/* ── Chairman card ── */}
+        <Reveal>
+          <div className="mt-16 rounded-3xl overflow-hidden grid sm:grid-cols-[1fr_2fr] items-center card">
+            <div className="w-full h-64 sm:h-full bg-[var(--color-saffron-tint)] flex items-center justify-center overflow-hidden">
+              <img
+                src={chairman.photo}
+                alt={chairman.name}
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+              />
+            </div>
+            <div className="p-7 sm:p-10 space-y-4">
+              <span className="eyebrow" style={{ color: "var(--color-saffron-text)" }}>{chairman.role}</span>
+              <h3 className="font-display font-bold text-2xl sm:text-3xl leading-tight">{chairman.name}</h3>
+              <p className="text-sm font-medium" style={{ color: "var(--color-green-text)" }}>{chairman.affiliation}</p>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--color-muted)" }}>{chairman.bio}</p>
+              <ul className="space-y-1.5 pt-1">
+                {chairman.highlights.map((h) => (
+                  <li key={h} className="flex items-start gap-2 text-sm">
+                    <span className="mt-1 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "var(--color-saffron)" }} />
+                    {h}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </Reveal>
 
         {/* recognition strip with CM photo */}
         <Reveal>

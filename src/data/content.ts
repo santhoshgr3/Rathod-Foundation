@@ -9,7 +9,7 @@ export const leader = {
   shortName: "Dhanraj Rathod",
   org: "Rathod Foundation",
   tagline: "Connecting needs with solutions across Banjara Hills.",
-  role: "Community Leader & Social Worker — Banjara Hills",
+  role: "Founder — Rathod Foundation | Community Leader & Social Worker, Banjara Hills",
   dob: "14 September 1976",
   community: "S.T. (Lambadi)",
   languages: ["English", "Hindi", "Telugu"],
@@ -59,6 +59,22 @@ export const bio = {
     { icon: "clock", title: "Fast", text: "First response within 24 hours — no exceptions." },
     { icon: "users", title: "For everyone", text: "Caste, creed or street — the queue is the same for all." },
   ],
+};
+
+export const chairman = {
+  name: "Jeevan Raj Rathod",
+  role: "Chairman — Rathod Foundation",
+  title: "Social Activist & Student Leader",
+  affiliation: "President, NSUI — Khairatabad District",
+  location: "Banjara Hills & Khairatabad, Hyderabad, Telangana",
+  bio: "Jeevan Raj Rathod is a student activist, social activist, and politician from Hyderabad, Telangana. Serving as President of the NSUI Khairatabad District unit, he champions student rights, youth engagement in democratic processes, and grassroots community welfare. Through the Rathod Foundation, he supports economically disadvantaged families, facilitates access to government welfare schemes, and promotes digitally enabled social service programs across the Banjara Hills and Khairatabad regions.",
+  highlights: [
+    "President, NSUI — Khairatabad District",
+    "Student & youth advocate across Banjara Hills and Khairatabad",
+    "Community relief drives, awareness campaigns & civic outreach",
+    "Champion of increased youth participation in democratic processes",
+  ],
+  photo: "/img/chairman.jpeg", // TODO: add Jeevan Raj's photo to /public/img/
 };
 
 // 24-hour promise — scrolling strip
