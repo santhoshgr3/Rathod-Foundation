@@ -63,10 +63,8 @@ export default function Nav() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* full switcher on large screens only — keeps the mobile bar uncluttered */}
-          <div className="hidden lg:block">
-            <LanguageSwitcher />
-          </div>
+          {/* language switcher visible on ALL screen sizes */}
+          <LanguageSwitcher />
           <NavLink to="/seek-help" className="hidden sm:inline-flex rounded-full px-4 py-2 text-sm font-semibold transition-transform hover:scale-[1.03]" style={{ background: "var(--color-saffron)", color: "#fff", boxShadow: "var(--elev-saffron)" }}>
             {t("nav.seekHelp")}
           </NavLink>

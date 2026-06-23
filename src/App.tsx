@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import Volunteer from "./pages/Volunteer";
 import Gallery from "./pages/Gallery";
 import Admin from "./pages/Admin";
+import QRCodePage from "./pages/QRCode";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -19,6 +20,8 @@ export default function App() {
     <Routes>
       {/* Admin — no nav/footer wrapper */}
       <Route path="/admin" element={<Admin />} />
+      {/* QR code — standalone printable page */}
+      <Route path="/qr" element={<QRCodePage />} />
 
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
