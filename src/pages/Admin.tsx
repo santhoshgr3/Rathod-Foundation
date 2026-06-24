@@ -56,15 +56,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-const inp = "w-full border rounded-lg px-3 py-2 text-sm outline-none focus:border-[--color-saffron]";
+const inp = "w-full border rounded-xl px-4 py-3 text-sm outline-none focus:border-[--color-saffron] focus:ring-2 focus:ring-orange-100 transition-colors";
 const btn = (variant: "saffron" | "green" | "red" | "ghost" = "saffron") => {
   const styles = {
-    saffron: "bg-[--color-saffron] text-white",
-    green: "bg-[--color-green] text-white",
-    red: "bg-red-600 text-white",
-    ghost: "border text-[--color-ink]",
+    saffron: "bg-[--color-saffron] text-white shadow-sm",
+    green: "bg-[--color-green] text-white shadow-sm",
+    red: "bg-red-600 text-white shadow-sm",
+    ghost: "border bg-white text-[--color-ink]",
   };
-  return `rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80 ${styles[variant]}`;
+  return `rounded-xl px-4 py-2.5 text-sm font-semibold transition-all hover:opacity-85 active:scale-95 ${styles[variant]}`;
 };
 
 function SaveBanner({ saved }: { saved: boolean }) {
@@ -110,8 +110,8 @@ function OverviewTab() {
         ))}
       </div>
       <p className="text-sm" style={{ color: "var(--color-muted)" }}>
-        Use the tabs above to edit site content, manage gallery photos, update the timeline, review submissions and more.
-        <br />Changes save automatically — they're live immediately on the website.
+        Use the menu on the left to edit site content, manage gallery photos, update the timeline, review submissions and more.
+        <br />Changes save automatically — they go live on the website immediately.
       </p>
     </div>
   );
@@ -977,29 +977,95 @@ function ResetTab() {
   );
 }
 
-// ── Main Admin page ───────────────────────────────────────────────────────────
-const TABS = [
-  { key: "overview", label: "Overview" },
-  { key: "site", label: "Site Info" },
-  { key: "chairman", label: "Chairman" },
-  { key: "gallery", label: "Gallery" },
-  { key: "timeline", label: "Timeline" },
-  { key: "works", label: "Work Cases" },
-  { key: "wards", label: "Ward Data" },
-  { key: "stats", label: "Stats & Ticker" },
-  { key: "bio", label: "Biography" },
-  { key: "steps", label: "Process Steps" },
-  { key: "submissions", label: "Submissions" },
-  { key: "volunteers", label: "Volunteers" },
-  { key: "reset", label: "Reset" },
+// ── Nav config ────────────────────────────────────────────────────────────────
+const NAV_GROUPS = [
+  {
+    group: "Dashboard",
+    items: [
+      { key: "overview",    label: "Overview",       icon: "📊" },
+      { key: "submissions", label: "Submissions",    icon: "📬" },
+      { key: "volunteers",  label: "Volunteers",     icon: "🙋" },
+    ],
+  },
+  {
+    group: "Content",
+    items: [
+      { key: "site",      label: "Site Info",      icon: "🏠" },
+      { key: "chairman",  label: "Chairman",       icon: "👤" },
+      { key: "bio",       label: "Biography",      icon: "📖" },
+      { key: "gallery",   label: "Gallery",        icon: "🖼️" },
+      { key: "timeline",  label: "Timeline",       icon: "⏳" },
+    ],
+  },
+  {
+    group: "Data",
+    items: [
+      { key: "works", label: "Work Cases",     icon: "🔨" },
+      { key: "stats", label: "Stats & Ticker", icon: "📈" },
+      { key: "wards", label: "Ward Data",      icon: "🗺️" },
+      { key: "steps", label: "Process Steps",  icon: "📋" },
+    ],
+  },
+  {
+    group: "Danger zone",
+    items: [
+      { key: "reset", label: "Reset Content", icon: "⚠️" },
+    ],
+  },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["key"];
+type TabKey = "overview" | "submissions" | "volunteers" | "site" | "chairman" | "bio" | "gallery" | "timeline" | "works" | "stats" | "wards" | "steps" | "reset";
 
+// ── Sidebar nav ───────────────────────────────────────────────────────────────
+function SidebarNav({ tab, setTab, onClose }: { tab: TabKey; setTab: (t: TabKey) => void; onClose?: () => void }) {
+  return (
+    <nav className="flex flex-col h-full">
+      {/* Logo */}
+      <div className="px-5 py-5 border-b flex items-center gap-3" style={{ borderColor: "var(--color-line)" }}>
+        <div className="grid place-items-center w-9 h-9 rounded-xl font-display font-extrabold text-sm text-white shrink-0" style={{ background: "var(--color-saffron)" }}>RF</div>
+        <div>
+          <div className="font-display font-bold text-sm leading-tight">Admin Panel</div>
+          <div className="text-xs" style={{ color: "var(--color-muted)" }}>Rathod Foundation</div>
+        </div>
+      </div>
+
+      {/* Nav groups */}
+      <div className="flex-1 overflow-y-auto py-3 px-3 space-y-5">
+        {NAV_GROUPS.map((g) => (
+          <div key={g.group}>
+            <p className="text-[10px] font-bold uppercase tracking-widest px-2 mb-1.5" style={{ color: "var(--color-muted)" }}>{g.group}</p>
+            <div className="space-y-0.5">
+              {g.items.map((item) => {
+                const active = tab === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => { setTab(item.key as TabKey); onClose?.(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-left transition-all"
+                    style={active
+                      ? { background: "var(--color-saffron-tint)", color: "var(--color-saffron-text)" }
+                      : { color: "var(--color-ink)" }}
+                  >
+                    <span className="text-base w-6 text-center shrink-0">{item.icon}</span>
+                    {item.label}
+                    {active && <span className="ml-auto w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "var(--color-saffron)" }} />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
+// ── Main Admin page ───────────────────────────────────────────────────────────
 export default function Admin() {
   const { cms } = useCMS();
   const [authed, setAuthed] = useState(() => sessionStorage.getItem("rf_admin") === "1");
   const [tab, setTab] = useState<TabKey>("overview");
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   if (!authed) {
     return (
@@ -1012,56 +1078,87 @@ export default function Admin() {
 
   const logout = () => { sessionStorage.removeItem("rf_admin"); setAuthed(false); };
 
+  const allItems = NAV_GROUPS.flatMap((g) => [...g.items]) as { key: string; label: string; icon: string }[];
+  const currentLabel = allItems.find((i) => i.key === tab);
+
   return (
-    <div className="min-h-screen" style={{ background: "#f7f7f8" }}>
-      {/* Header */}
-      <div className="sticky top-0 z-40 bg-white border-b" style={{ borderColor: "var(--color-line)" }}>
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="grid place-items-center w-8 h-8 rounded-lg font-display font-extrabold text-xs text-white" style={{ background: "var(--color-saffron)" }}>RF</div>
-            <span className="font-display font-bold text-sm">Admin Panel</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link to="/" className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>← Website</Link>
-            <button onClick={logout} className="text-xs font-semibold px-3 py-1.5 rounded-lg border" style={{ borderColor: "var(--color-line)" }}>Logout</button>
-          </div>
-        </div>
+    <div className="min-h-screen flex" style={{ background: "#f4f5f7" }}>
 
-        {/* Tab bar */}
-        <div className="max-w-7xl mx-auto px-4 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-0.5 min-w-max pb-0">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className="px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-colors border-b-2"
-                style={{
-                  borderColor: tab === t.key ? "var(--color-saffron)" : "transparent",
-                  color: tab === t.key ? "var(--color-saffron-text)" : "var(--color-muted)",
-                }}
-              >
-                {t.label}
+      {/* ── Desktop sidebar ─────────────────────────────────────────── */}
+      <aside className="hidden md:flex flex-col w-56 shrink-0 bg-white border-r sticky top-0 h-screen overflow-hidden" style={{ borderColor: "var(--color-line)" }}>
+        <SidebarNav tab={tab} setTab={setTab} />
+        <div className="px-4 py-4 border-t space-y-2" style={{ borderColor: "var(--color-line)" }}>
+          <Link to="/" className="flex items-center gap-2 text-xs font-medium rounded-xl px-3 py-2.5 transition-colors hover:bg-gray-50" style={{ color: "var(--color-muted)" }}>
+            ← Back to website
+          </Link>
+          <button onClick={logout} className="w-full flex items-center gap-2 text-xs font-semibold rounded-xl px-3 py-2.5 transition-colors hover:bg-red-50 text-red-600">
+            🚪 Logout
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Mobile drawer overlay ────────────────────────────────────── */}
+      {drawerOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} />
+          {/* Drawer */}
+          <div className="relative w-72 max-w-[85vw] bg-white h-full flex flex-col shadow-2xl">
+            <SidebarNav tab={tab} setTab={setTab} onClose={() => setDrawerOpen(false)} />
+            <div className="px-4 py-4 border-t space-y-2" style={{ borderColor: "var(--color-line)" }}>
+              <Link to="/" onClick={() => setDrawerOpen(false)} className="flex items-center gap-2 text-xs font-medium rounded-xl px-3 py-2.5 hover:bg-gray-50" style={{ color: "var(--color-muted)" }}>
+                ← Back to website
+              </Link>
+              <button onClick={logout} className="w-full flex items-center gap-2 text-xs font-semibold rounded-xl px-3 py-2.5 hover:bg-red-50 text-red-600">
+                🚪 Logout
               </button>
-            ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Content */}
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        {tab === "overview" && <OverviewTab />}
-        {tab === "site" && <SiteInfoTab />}
-        {tab === "chairman" && <ChairmanTab />}
-        {tab === "gallery" && <GalleryTab />}
-        {tab === "timeline" && <TimelineTab />}
-        {tab === "works" && <WorkCasesTab />}
-        {tab === "wards" && <WardDataTab />}
-        {tab === "stats" && <StatsTickerTab />}
-        {tab === "bio" && <BiographyTab />}
-        {tab === "steps" && <ProcessStepsTab />}
-        {tab === "submissions" && <SubmissionsTab />}
-        {tab === "volunteers" && <VolunteersTab />}
-        {tab === "reset" && <ResetTab />}
+      {/* ── Main content ─────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0">
+
+        {/* Mobile top bar */}
+        <div className="md:hidden sticky top-0 z-40 bg-white border-b flex items-center gap-3 px-4 h-14" style={{ borderColor: "var(--color-line)" }}>
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="grid place-items-center w-10 h-10 rounded-xl shrink-0"
+            style={{ background: "var(--color-saffron-tint)", color: "var(--color-saffron-text)" }}
+            aria-label="Open menu"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="font-display font-bold text-sm truncate">
+              {currentLabel?.icon} {currentLabel?.label}
+            </div>
+            <div className="text-xs" style={{ color: "var(--color-muted)" }}>Admin Panel</div>
+          </div>
+          <button onClick={logout} className="text-xs font-semibold px-3 py-2 rounded-xl border shrink-0" style={{ borderColor: "var(--color-line)" }}>
+            Logout
+          </button>
+        </div>
+
+        {/* Page content */}
+        <main className="flex-1 px-4 sm:px-6 py-6 sm:py-8 max-w-4xl w-full mx-auto">
+          {tab === "overview"    && <OverviewTab />}
+          {tab === "site"        && <SiteInfoTab />}
+          {tab === "chairman"    && <ChairmanTab />}
+          {tab === "gallery"     && <GalleryTab />}
+          {tab === "timeline"    && <TimelineTab />}
+          {tab === "works"       && <WorkCasesTab />}
+          {tab === "wards"       && <WardDataTab />}
+          {tab === "stats"       && <StatsTickerTab />}
+          {tab === "bio"         && <BiographyTab />}
+          {tab === "steps"       && <ProcessStepsTab />}
+          {tab === "submissions" && <SubmissionsTab />}
+          {tab === "volunteers"  && <VolunteersTab />}
+          {tab === "reset"       && <ResetTab />}
+        </main>
       </div>
     </div>
   );
