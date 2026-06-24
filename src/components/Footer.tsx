@@ -77,7 +77,10 @@ export default function Footer() {
 
         <div className="mt-6 pt-6 flex flex-col sm:flex-row justify-between gap-3 text-xs" style={{ color: "var(--color-muted)", borderTop: "1px solid var(--color-line)" }}>
           <span>© {new Date().getFullYear()} {leader.org}. All rights reserved.</span>
-          <span>Serving Banjara Hills, Hyderabad · Built for the people.</span>
+          <div className="flex items-center gap-4">
+            <span>Serving Banjara Hills, Hyderabad · Built for the people.</span>
+            <Link to="/admin" className="opacity-40 hover:opacity-100 transition-opacity underline underline-offset-2">Admin</Link>
+          </div>
         </div>
       </div>
     </footer>
