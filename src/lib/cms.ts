@@ -1,9 +1,10 @@
 // ============================================================================
 //  Rathod Foundation — CMS data layer.
-//  All site content lives here (localStorage), seeded from content.ts defaults.
-//  Components read from CMSContext; admin panel writes here via updateCMS().
+//  All site content is stored in Supabase (cms_content table, single row id=1).
+//  Components read from CMSContext; admin panel writes via updateCMS().
 // ============================================================================
 
+import { supabase } from "./supabase";
 import {
   leader as dLeader,
   bio as dBio,
@@ -113,7 +114,7 @@ const DEFAULT_TIMELINE: CMSTimelineEntry[] = [
 ];
 
 // ── Defaults factory ──────────────────────────────────────────────────────────
-function defaults(): CMSContent {
+export function defaults(): CMSContent {
   return {
     leader: { ...dLeader, phones: [...dLeader.phones], languages: [...dLeader.languages], photos: { ...dLeader.photos } },
     bio: {
@@ -159,43 +160,60 @@ function defaults(): CMSContent {
   };
 }
 
-// ── Storage helpers ───────────────────────────────────────────────────────────
-const KEY = "rf_cms_v1";
+// ── Supabase CMS helpers ──────────────────────────────────────────────────────
 
-export function loadCMS(): CMSContent {
+export async function loadCMS(): Promise<CMSContent> {
+  if (!supabase) return defaults();
   try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) {
-      const stored = JSON.parse(raw) as Partial<CMSContent>;
+    const { data, error } = await supabase
+      .from("cms_content")
+      .select("data")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error) throw error;
+    if (data?.data) {
+      const stored = data.data as Partial<CMSContent>;
       const def = defaults();
       return {
-        leader: stored.leader ?? def.leader,
-        bio: stored.bio ?? def.bio,
-        chairman: stored.chairman ?? def.chairman,
-        home: stored.home ?? def.home,
-        pages: stored.pages ?? def.pages,
-        stats: stored.stats ?? def.stats,
-        steps: stored.steps ?? def.steps,
-        promises: stored.promises ?? def.promises,
-        wards: stored.wards ?? def.wards,
-        gallery: stored.gallery ?? def.gallery,
-        timeline: stored.timeline ?? def.timeline,
-        workCases: stored.workCases ?? def.workCases,
+        leader:        stored.leader        ?? def.leader,
+        bio:           stored.bio           ?? def.bio,
+        chairman:      stored.chairman      ?? def.chairman,
+        home:          stored.home          ?? def.home,
+        pages:         stored.pages         ?? def.pages,
+        stats:         stored.stats         ?? def.stats,
+        steps:         stored.steps         ?? def.steps,
+        promises:      stored.promises      ?? def.promises,
+        wards:         stored.wards         ?? def.wards,
+        gallery:       stored.gallery       ?? def.gallery,
+        timeline:      stored.timeline      ?? def.timeline,
+        workCases:     stored.workCases     ?? def.workCases,
         adminPassword: stored.adminPassword ?? def.adminPassword,
       };
     }
-  } catch {/* ignore */}
-  return defaults();
+    // No row yet — seed with defaults
+    const def = defaults();
+    await saveCMS(def);
+    return def;
+  } catch (e) {
+    console.error("[cms] loadCMS error:", e);
+    return defaults();
+  }
 }
 
-export function saveCMS(content: CMSContent): void {
+export async function saveCMS(content: CMSContent): Promise<void> {
+  if (!supabase) return;
   try {
-    localStorage.setItem(KEY, JSON.stringify(content));
-  } catch {/* ignore */}
+    const { error } = await supabase
+      .from("cms_content")
+      .upsert({ id: 1, data: content, updated_at: new Date().toISOString() });
+    if (error) throw error;
+  } catch (e) {
+    console.error("[cms] saveCMS error:", e);
+  }
 }
 
-export function resetCMS(): void {
-  localStorage.removeItem(KEY);
+export async function resetCMS(): Promise<void> {
+  await saveCMS(defaults());
 }
 
 export function uid(): string {
