@@ -52,10 +52,35 @@ export type CMSChairman = {
   photo: string;
 };
 
+export type CMSPageHeader = { eyebrow: string; title: string; subtitle: string };
+
+export type CMSHome = {
+  badge: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  heroBody: string;
+  visionText: string;
+};
+
+export type CMSPages = {
+  work: CMSPageHeader;
+  impact: CMSPageHeader;
+  process: CMSPageHeader;
+  report: CMSPageHeader;
+  volunteer: CMSPageHeader;
+  gallery: CMSPageHeader;
+  dashboard: CMSPageHeader;
+  track: CMSPageHeader;
+  about: CMSPageHeader;
+  seekHelp: CMSPageHeader;
+};
+
 export type CMSContent = {
   leader: CMSLeader;
   bio: CMSBio;
   chairman: CMSChairman;
+  home: CMSHome;
+  pages: CMSPages;
   stats: CMSStat[];
   steps: CMSStep[];
   promises: string[];
@@ -104,6 +129,25 @@ function defaults(): CMSContent {
       highlights: [...dChairman.highlights],
       photo: "/img/chairman.jpeg.jpeg",
     },
+    home: {
+      badge: "24-hour response · Banjara Hills",
+      heroTitle: "Banjara Hills' First Digital Community Support Platform.",
+      heroSubtitle: "Apply online, we reach your doorstep.",
+      heroBody: "Connecting needs with solutions across Banjara Hills.",
+      visionText: "No family should be left unheard. Rathod Foundation connects people in need with volunteers who verify concerns, guide beneficiaries, and help resolve issues with dignity and transparency.",
+    },
+    pages: {
+      work:      { eyebrow: "Work done",         title: "Before & after, on the record",       subtitle: "Drag the slider on each card to see the change. Every case is dated, located in Banjara Hills, and resolved on the ground." },
+      impact:    { eyebrow: "Impact",             title: "The footprint across Banjara Hills",  subtitle: "Where the issues come from, how many are resolved, and exactly where on the map the work is happening." },
+      process:   { eyebrow: "How it works",       title: "From request to resolution",          subtitle: "No runaround, no lost paperwork. Every request is verified on the ground and tracked end to end — with dignity and transparency." },
+      report:    { eyebrow: "Report an issue",    title: "Report an issue",                     subtitle: "Tell us what's wrong and get a live tracking number in seconds. We respond within 24 hours." },
+      volunteer: { eyebrow: "Get involved",       title: "Be the change in your ward",          subtitle: "The foundation runs on neighbours helping neighbours. Join as a volunteer, flag an issue, or take part in a campaign." },
+      gallery:   { eyebrow: "Gallery",            title: "Our work in pictures",                subtitle: "Photos from the ground — events, before & after, and the people making it happen." },
+      dashboard: { eyebrow: "Dashboard",          title: "Impact at a glance",                  subtitle: "Live numbers from the field. Every case, every ward, every volunteer — counted and tracked." },
+      track:     { eyebrow: "Track your case",    title: "Track your case",                     subtitle: "Enter your case ID to see exactly where your request stands — updated in real time." },
+      about:     { eyebrow: "About",              title: "Meet Dhanraj Rathod",                 subtitle: "A grassroots leader from Banjara Hills who measures success in problems solved — not promises made." },
+      seekHelp:  { eyebrow: "Seek help",          title: "How can we help you?",                subtitle: "Tell us what you need — a volunteer will reach out within 24 hours." },
+    },
     stats: dStats.map((s) => ({ ...s })),
     steps: dSteps.map((s) => ({ ...s })),
     promises: [...dPromises],
@@ -128,6 +172,8 @@ export function loadCMS(): CMSContent {
         leader: stored.leader ?? def.leader,
         bio: stored.bio ?? def.bio,
         chairman: stored.chairman ?? def.chairman,
+        home: stored.home ?? def.home,
+        pages: stored.pages ?? def.pages,
         stats: stored.stats ?? def.stats,
         steps: stored.steps ?? def.steps,
         promises: stored.promises ?? def.promises,

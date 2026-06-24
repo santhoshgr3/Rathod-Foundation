@@ -5,7 +5,7 @@ import { useT } from "../lib/i18n";
 import { CountUp, Icon, TiltCard } from "./ui";
 
 export default function Hero() {
-  const { cms: { leader, stats } } = useCMS();
+  const { cms: { leader, stats, home } } = useCMS();
   const { lang } = useT();
   return (
     <section className="relative overflow-hidden bg-white pt-24 sm:pt-28 pb-16">
@@ -28,7 +28,7 @@ export default function Hero() {
               <span className="animate-ping absolute h-full w-full rounded-full opacity-75" style={{ background: "var(--color-saffron)" }} />
               <span className="relative rounded-full h-2 w-2" style={{ background: "var(--color-saffron)" }} />
             </span>
-            24-hour response · Banjara Hills
+            {home.badge}
           </motion.div>
 
           <motion.h1
@@ -38,8 +38,7 @@ export default function Hero() {
             className="fluid-display font-display font-extrabold text-balance"
             style={{ color: "var(--color-ink)" }}
           >
-            Banjara Hills’ First{" "}
-            <span className="text-shimmer">Digital Community Support Platform.</span>
+            <span className="text-shimmer">{home.heroTitle}</span>
           </motion.h1>
 
           <motion.p
@@ -49,9 +48,9 @@ export default function Hero() {
             className="mt-6 font-display font-bold text-xl sm:text-2xl max-w-xl leading-snug text-balance"
             style={{ color: "var(--color-ink)" }}
           >
-            Apply online, we reach your <span style={{ color: "var(--color-green-text)" }}>doorstep</span>.
+            {home.heroSubtitle}
             <span className="block mt-2 text-base sm:text-lg font-medium" style={{ color: "var(--color-muted)" }}>
-              Connecting needs with solutions across Banjara Hills.
+              {home.heroBody}
             </span>
           </motion.p>
 

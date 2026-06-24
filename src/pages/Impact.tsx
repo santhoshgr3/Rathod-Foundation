@@ -1,14 +1,17 @@
 import PageHeader from "../components/PageHeader";
 import WardImpact from "../components/WardImpact";
 import BanjaraMap from "../components/BanjaraMap";
+import { useCMS } from "../contexts/CMSContext";
 
 export default function Impact() {
+  const { cms: { pages } } = useCMS();
+  const p = pages.impact;
   return (
     <>
       <PageHeader
-        eyebrow="Impact"
-        title={<>The footprint across Banjara Hills</>}
-        subtitle="Where the issues come from, how many are resolved, and exactly where on the map the work is happening."
+        eyebrow={p.eyebrow}
+        title={p.title}
+        subtitle={p.subtitle}
       />
       <WardImpact />
       <BanjaraMap />

@@ -5,11 +5,13 @@ import { CountUp, Icon, Reveal } from "../components/ui";
 import { categoryLabel } from "../data/help";
 import { useT } from "../lib/i18n";
 import { getStats, listCases, STAGES, type Case, type Stats } from "../lib/store";
+import { useCMS } from "../contexts/CMSContext";
 
 const EMPTY_STATS: Stats = { received: 0, verified: 0, resolved: 0, volunteers: 0, wards: 0, byCategory: [] };
 
 export default function Dashboard() {
   const { t, lang } = useT();
+  const { cms: { pages } } = useCMS();
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
   const [recent, setRecent] = useState<Case[]>([]);
 
@@ -36,7 +38,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <PageHeader eyebrow={t("nav.dashboard")} title="Impact, in real numbers" subtitle="A transparent, live view of every request the foundation handles — updated as cases move through verification." />
+      <PageHeader eyebrow={pages.dashboard.eyebrow} title={pages.dashboard.title} subtitle={pages.dashboard.subtitle} />
       <section className="py-16 bg-white">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
           {/* stat cards */}

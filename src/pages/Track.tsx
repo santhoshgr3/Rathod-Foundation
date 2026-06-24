@@ -6,9 +6,11 @@ import { Icon } from "../components/ui";
 import { categoryLabel } from "../data/help";
 import { useT } from "../lib/i18n";
 import { getCase, STAGES, type Case } from "../lib/store";
+import { useCMS } from "../contexts/CMSContext";
 
 export default function Track() {
   const { t, lang } = useT();
+  const { cms: { pages } } = useCMS();
   const [params, setParams] = useSearchParams();
   const [id, setId] = useState(params.get("id") ?? "");
   const [result, setResult] = useState<Case | "none" | null>(null);
@@ -41,7 +43,7 @@ export default function Track() {
 
   return (
     <>
-      <PageHeader eyebrow={t("nav.track")} title={t("tr.title")} subtitle={t("tr.enter")} />
+      <PageHeader eyebrow={pages.track.eyebrow} title={pages.track.title} subtitle={pages.track.subtitle} />
       <section className="py-16 bg-white">
         <div className="mx-auto max-w-2xl px-5 sm:px-8">
           <form onSubmit={onSubmit} className="flex gap-2">

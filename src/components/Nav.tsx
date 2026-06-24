@@ -16,6 +16,7 @@ export default function Nav() {
     { to: "/", label: t("nav.home"), end: true },
     { to: "/seek-help", label: t("nav.seekHelp") },
     { to: "/track", label: t("nav.track") },
+    { to: "/work", label: t("nav.work") },
     { to: "/dashboard", label: t("nav.dashboard") },
     { to: "/volunteer", label: t("nav.involved") },
     { to: "/gallery", label: t("nav.gallery") },

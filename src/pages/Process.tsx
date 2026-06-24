@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import HowItWorks from "../components/HowItWorks";
 import { Icon, Reveal, SectionHead } from "../components/ui";
+import { useCMS } from "../contexts/CMSContext";
 
 const workflow = [
   { t: "Citizen submits application", d: "Online, by WhatsApp, by phone, or in person.", icon: Icon.doc },
@@ -14,13 +15,11 @@ const workflow = [
 ];
 
 export default function Process() {
+  const { cms: { pages } } = useCMS();
+  const p = pages.process;
   return (
     <>
-      <PageHeader
-        eyebrow="How it works"
-        title={<>From request to resolution</>}
-        subtitle="No runaround, no lost paperwork. Every request is verified on the ground and tracked end to end — with dignity and transparency."
-      />
+      <PageHeader eyebrow={p.eyebrow} title={p.title} subtitle={p.subtitle} />
 
       {/* the 7-step verification workflow */}
       <section className="py-16 bg-white">

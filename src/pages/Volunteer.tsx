@@ -6,12 +6,15 @@ import { Icon, Reveal } from "../components/ui";
 import { campaigns } from "../data/help";
 import { useT } from "../lib/i18n";
 import { saveSuggestion, saveVolunteer } from "../lib/store";
+import { useCMS } from "../contexts/CMSContext";
 
 export default function Volunteer() {
   const { t } = useT();
+  const { cms: { pages } } = useCMS();
+  const p = pages.volunteer;
   return (
     <>
-      <PageHeader eyebrow={t("nav.involved")} title="Be the change in your ward" subtitle="The foundation runs on neighbours helping neighbours. Join as a volunteer, flag an issue, or take part in a campaign." />
+      <PageHeader eyebrow={p.eyebrow} title={p.title} subtitle={p.subtitle} />
       <section className="py-16 bg-white">
         <div className="mx-auto max-w-7xl px-5 sm:px-8 grid lg:grid-cols-[1.1fr_0.9fr] gap-8 items-start">
           <Reveal><VolunteerForm /></Reveal>

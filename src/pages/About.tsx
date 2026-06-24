@@ -1,14 +1,13 @@
 import PageHeader from "../components/PageHeader";
 import Bio from "../components/Bio";
+import { useCMS } from "../contexts/CMSContext";
 
 export default function About() {
+  const { cms: { pages } } = useCMS();
+  const p = pages.about;
   return (
     <>
-      <PageHeader
-        eyebrow="About"
-        title={<>Meet Dhanraj Rathod</>}
-        subtitle="A grassroots leader from Banjara Hills who measures success in problems solved — not promises made."
-      />
+      <PageHeader eyebrow={p.eyebrow} title={p.title} subtitle={p.subtitle} />
       <Bio />
     </>
   );

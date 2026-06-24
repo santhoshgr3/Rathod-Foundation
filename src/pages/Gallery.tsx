@@ -118,7 +118,7 @@ function PhotoCard({ photo, index, onClick }: { photo: CMSGalleryPhoto; index: n
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function Gallery() {
   const { t } = useT();
-  const { cms: { gallery, timeline, workCases } } = useCMS();
+  const { cms: { gallery, timeline, workCases, pages } } = useCMS();
   const [activeTag, setActiveTag] = useState<string>("all");
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
@@ -141,9 +141,9 @@ export default function Gallery() {
   return (
     <>
       <PageHeader
-        eyebrow={t("nav.gallery")}
-        title={t("gallery.pageTitle")}
-        subtitle={t("gallery.pageSub")}
+        eyebrow={pages.gallery.eyebrow}
+        title={pages.gallery.title}
+        subtitle={pages.gallery.subtitle}
       />
 
       {/* Gallery */}

@@ -7,12 +7,7 @@ import { CountUp, Icon, Reveal, SectionHead, SpotlightCard } from "../components
 import { helpCategories } from "../data/help";
 import { useT } from "../lib/i18n";
 import { getStats, type Stats } from "../lib/store";
-
-const vision = {
-  en: "No family should be left unheard. Rathod Foundation connects people in need with volunteers who verify concerns, guide beneficiaries, and help resolve issues with dignity and transparency.",
-  te: "ఏ కుటుంబం కూడా వినబడకుండా ఉండకూడదు. అవసరంలో ఉన్నవారిని వాలంటీర్లతో కలిపి, సమస్యలను ధృవీకరించి, గౌరవంగా, పారదర్శకంగా పరిష్కరించడమే రాథోడ్ ఫౌండేషన్ లక్ష్యం.",
-  hi: "कोई भी परिवार अनसुना न रहे। राठोड फाउंडेशन ज़रूरतमंदों को वॉलंटियर्स से जोड़ता है जो समस्याओं को सत्यापित करते हैं और सम्मान व पारदर्शिता के साथ समाधान में मदद करते हैं।",
-};
+import { useCMS } from "../contexts/CMSContext";
 
 const exploreCards = [
   { to: "/seek-help", icon: Icon.hand, key: "nav.seekHelp", text: "Medical, pension, ration, schemes & more — get help in minutes.", green: false },
@@ -23,6 +18,7 @@ const exploreCards = [
 
 export default function Home() {
   const { t, lang } = useT();
+  const { cms: { home } } = useCMS();
   const [stats, setStats] = useState<Stats>({ received: 0, verified: 0, resolved: 0, volunteers: 0, wards: 0, byCategory: [] });
 
   useEffect(() => {
@@ -43,7 +39,7 @@ export default function Home() {
           <Reveal delay={0.06}>
             <p className="font-display font-extrabold text-2xl sm:text-3xl lg:text-4xl leading-snug mt-4">
               <span style={{ color: "var(--color-saffron-text)" }}>“</span>
-              {vision[lang]}
+              {home.visionText}
               <span style={{ color: "var(--color-saffron-text)" }}>”</span>
             </p>
           </Reveal>

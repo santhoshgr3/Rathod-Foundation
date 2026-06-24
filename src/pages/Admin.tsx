@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useCMS } from "../contexts/CMSContext";
-import { uid, type CMSGalleryPhoto, type CMSTimelineEntry, type CMSWard, type CMSStat, type CMSWorkCase, type CMSChairman, type CMSStep } from "../lib/cms";
+import { uid, type CMSGalleryPhoto, type CMSTimelineEntry, type CMSWard, type CMSStat, type CMSWorkCase, type CMSChairman, type CMSStep, type CMSPageHeader, type CMSHome } from "../lib/cms";
 import { listCases, listVolunteers, updateCaseStage, STAGES, type Case as CaseT, type Volunteer as VolunteerT } from "../lib/store";
 
 // ── Auth gate ─────────────────────────────────────────────────────────────────
@@ -977,6 +977,116 @@ function ResetTab() {
   );
 }
 
+// ── Tab: Home Page ────────────────────────────────────────────────────────────
+function HomePageTab() {
+  const { cms, updateCMS } = useCMS();
+  const [local, setLocal] = useState<CMSHome>(() => ({ ...cms.home }));
+  const [saved, setSaved] = useState(false);
+
+  const save = () => {
+    updateCMS((p) => ({ ...p, home: { ...local } }));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  const set = (k: keyof CMSHome) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setLocal((p) => ({ ...p, [k]: e.target.value }));
+
+  return (
+    <div className="max-w-2xl">
+      <SaveBanner saved={saved} />
+      <h2 className="text-xl font-display font-bold mb-1">Home Page</h2>
+      <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>The hero section and vision quote on the home page.</p>
+      <div className="space-y-4">
+        <Field label="Top badge text">
+          <input className={inp} value={local.badge} onChange={set("badge")} placeholder="24-hour response · Banjara Hills" />
+        </Field>
+        <Field label="Hero heading (main title)">
+          <textarea className={inp + " h-20 resize-none"} value={local.heroTitle} onChange={set("heroTitle")} />
+        </Field>
+        <Field label="Hero subheading">
+          <input className={inp} value={local.heroSubtitle} onChange={set("heroSubtitle")} />
+        </Field>
+        <Field label="Hero body text (below subheading)">
+          <input className={inp} value={local.heroBody} onChange={set("heroBody")} />
+        </Field>
+        <Field label="Vision quote (Our Vision section)">
+          <textarea className={inp + " h-24 resize-none"} value={local.visionText} onChange={set("visionText")} />
+        </Field>
+        <button onClick={save} className={btn("saffron") + " px-5 py-2.5 text-sm"}>Save changes</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Tab: All Pages ────────────────────────────────────────────────────────────
+const PAGE_KEYS: { key: keyof import("../lib/cms").CMSPages; label: string; icon: string }[] = [
+  { key: "work",      label: "Work Done",      icon: "🔨" },
+  { key: "impact",    label: "Impact",          icon: "🗺️" },
+  { key: "process",   label: "How It Works",    icon: "📋" },
+  { key: "report",    label: "Report an Issue", icon: "📝" },
+  { key: "volunteer", label: "Get Involved",    icon: "🙋" },
+  { key: "gallery",   label: "Gallery",         icon: "🖼️" },
+  { key: "dashboard", label: "Dashboard",       icon: "📊" },
+  { key: "track",     label: "Track a Case",    icon: "🔍" },
+  { key: "about",     label: "About",           icon: "👤" },
+  { key: "seekHelp",  label: "Seek Help",       icon: "🤝" },
+];
+
+function PageHeaderField({ pageKey, label, icon }: { pageKey: keyof import("../lib/cms").CMSPages; label: string; icon: string }) {
+  const { cms, updateCMS } = useCMS();
+  const val: CMSPageHeader = cms.pages[pageKey];
+  const [local, setLocal] = useState<CMSPageHeader>({ ...val });
+  const [saved, setSaved] = useState(false);
+
+  const save = () => {
+    updateCMS((p) => ({ ...p, pages: { ...p.pages, [pageKey]: { ...local } } }));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  };
+
+  const set = (k: keyof CMSPageHeader) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setLocal((p) => ({ ...p, [k]: e.target.value }));
+
+  return (
+    <div className="rounded-2xl border p-5 space-y-3" style={{ borderColor: "var(--color-line)", borderLeft: "4px solid var(--color-saffron)" }}>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-semibold text-sm flex items-center gap-2">
+          <span>{icon}</span> {label}
+          <span className="text-xs font-normal px-2 py-0.5 rounded-full" style={{ background: "var(--color-saffron-tint)", color: "var(--color-saffron-text)" }}>/{pageKey === "seekHelp" ? "seek-help" : pageKey}</span>
+        </h3>
+        {saved && <span className="text-xs font-semibold" style={{ color: "var(--color-green-text)" }}>✓ Saved</span>}
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Field label="Eyebrow (small label)">
+          <input className={inp} value={local.eyebrow} onChange={set("eyebrow")} />
+        </Field>
+        <Field label="Page title">
+          <input className={inp} value={local.title} onChange={set("title")} />
+        </Field>
+      </div>
+      <Field label="Subtitle / description">
+        <textarea className={inp + " h-16 resize-none"} value={local.subtitle} onChange={set("subtitle")} />
+      </Field>
+      <button onClick={save} className={btn("saffron") + " text-xs px-4 py-2"}>Save</button>
+    </div>
+  );
+}
+
+function AllPagesTab() {
+  return (
+    <div>
+      <h2 className="text-xl font-display font-bold mb-1">All Pages</h2>
+      <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>Edit the header text (eyebrow label, title, subtitle) shown at the top of each page.</p>
+      <div className="space-y-4">
+        {PAGE_KEYS.map((p) => (
+          <PageHeaderField key={p.key} pageKey={p.key} label={p.label} icon={p.icon} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Nav config ────────────────────────────────────────────────────────────────
 const NAV_GROUPS = [
   {
@@ -990,7 +1100,9 @@ const NAV_GROUPS = [
   {
     group: "Content",
     items: [
-      { key: "site",      label: "Site Info",      icon: "🏠" },
+      { key: "home",      label: "Home Page",      icon: "🏠" },
+      { key: "allpages",  label: "All Pages",      icon: "📄" },
+      { key: "site",      label: "Site Info",      icon: "⚙️" },
       { key: "chairman",  label: "Chairman",       icon: "👤" },
       { key: "bio",       label: "Biography",      icon: "📖" },
       { key: "gallery",   label: "Gallery",        icon: "🖼️" },
@@ -1014,7 +1126,7 @@ const NAV_GROUPS = [
   },
 ] as const;
 
-type TabKey = "overview" | "submissions" | "volunteers" | "site" | "chairman" | "bio" | "gallery" | "timeline" | "works" | "stats" | "wards" | "steps" | "reset";
+type TabKey = "overview" | "submissions" | "volunteers" | "home" | "allpages" | "site" | "chairman" | "bio" | "gallery" | "timeline" | "works" | "stats" | "wards" | "steps" | "reset";
 
 // ── Sidebar nav ───────────────────────────────────────────────────────────────
 function SidebarNav({ tab, setTab, onClose }: { tab: TabKey; setTab: (t: TabKey) => void; onClose?: () => void }) {
@@ -1146,6 +1258,8 @@ export default function Admin() {
         {/* Page content */}
         <main className="flex-1 px-4 sm:px-6 py-6 sm:py-8 max-w-4xl w-full mx-auto">
           {tab === "overview"    && <OverviewTab />}
+          {tab === "home"        && <HomePageTab />}
+          {tab === "allpages"    && <AllPagesTab />}
           {tab === "site"        && <SiteInfoTab />}
           {tab === "chairman"    && <ChairmanTab />}
           {tab === "gallery"     && <GalleryTab />}
