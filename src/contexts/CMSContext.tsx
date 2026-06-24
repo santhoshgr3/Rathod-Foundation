@@ -14,25 +14,30 @@ export function CMSProvider({ children }: { children: ReactNode }) {
   const [cms, setCMS] = useState<CMSContent | null>(null);
   const [saving, setSaving] = useState(false);
   const initialLoad = useRef(true);
+  const prevCmsRef = useRef<CMSContent | null>(null); // snapshot before last save
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load from Supabase on mount
   useEffect(() => {
-    loadCMS().then(setCMS);
+    loadCMS().then((data) => {
+      prevCmsRef.current = data; // anchor for first diff
+      setCMS(data);
+    });
   }, []);
 
-  // Save to Supabase 600 ms after the last change (debounced)
-  // Skip the very first render after initial load
+  // Debounced diff-aware save: only writes tables whose domain changed since last save
   useEffect(() => {
     if (!cms) return;
     if (initialLoad.current) {
       initialLoad.current = false;
       return;
     }
+    const prevSnapshot = prevCmsRef.current;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setSaving(true);
     saveTimer.current = setTimeout(async () => {
-      await saveCMS(cms);
+      await saveCMS(cms, prevSnapshot ?? undefined);
+      prevCmsRef.current = cms; // advance anchor after successful save
       setSaving(false);
     }, 600);
     return () => {
@@ -49,7 +54,8 @@ export function CMSProvider({ children }: { children: ReactNode }) {
   const resetToDefaults = useCallback(async () => {
     await resetCMS();
     const fresh = await loadCMS();
-    initialLoad.current = true; // skip save-on-change for the reset load
+    initialLoad.current = true;   // skip save-on-change for the reset load
+    prevCmsRef.current = fresh;   // anchor to fresh state
     setCMS(fresh);
   }, []);
 
