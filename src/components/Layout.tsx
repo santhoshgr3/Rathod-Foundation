@@ -3,6 +3,8 @@ import { Outlet, useLocation } from "react-router-dom";
 import Nav from "./Nav";
 import Footer from "./Footer";
 import EmergencyButton from "./EmergencyButton";
+import MobileBottomNav from "./MobileBottomNav";
+import WhatsAppFAB from "./WhatsAppFAB";
 import { ScrollProgress } from "./ui";
 
 function ScrollToTop() {
@@ -19,11 +21,13 @@ export default function Layout() {
       <ScrollToTop />
       <ScrollProgress />
       <Nav />
-      <main className="min-h-screen">
+      <main className="min-h-screen pb-20 lg:pb-0">
         <Outlet />
       </main>
       <EmergencyButton />
+      <WhatsAppFAB />
       <Footer />
+      <MobileBottomNav />
     </>
   );
 }

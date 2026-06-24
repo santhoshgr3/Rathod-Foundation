@@ -12,6 +12,7 @@ import {
   wards as dWards,
   cases as dCases,
   steps as dSteps,
+  chairman as dChairman,
 } from "../data/content";
 import type { WorkCase } from "../data/content";
 
@@ -42,9 +43,19 @@ export type CMSTimelineEntry = {
   icon: string;
 };
 
+export type CMSChairman = {
+  name: string;
+  role: string;
+  affiliation: string;
+  bio: string;
+  highlights: string[];
+  photo: string;
+};
+
 export type CMSContent = {
   leader: CMSLeader;
   bio: CMSBio;
+  chairman: CMSChairman;
   stats: CMSStat[];
   steps: CMSStep[];
   promises: string[];
@@ -85,6 +96,14 @@ function defaults(): CMSContent {
       journey: dBio.journey.map((j) => ({ ...j })),
       values: dBio.values.map((v) => ({ ...v })),
     },
+    chairman: {
+      name: dChairman.name,
+      role: dChairman.role,
+      affiliation: dChairman.affiliation,
+      bio: dChairman.bio,
+      highlights: [...dChairman.highlights],
+      photo: "/img/chairman.jpeg.jpeg",
+    },
     stats: dStats.map((s) => ({ ...s })),
     steps: dSteps.map((s) => ({ ...s })),
     promises: [...dPromises],
@@ -108,6 +127,7 @@ export function loadCMS(): CMSContent {
       return {
         leader: stored.leader ?? def.leader,
         bio: stored.bio ?? def.bio,
+        chairman: stored.chairman ?? def.chairman,
         stats: stored.stats ?? def.stats,
         steps: stored.steps ?? def.steps,
         promises: stored.promises ?? def.promises,

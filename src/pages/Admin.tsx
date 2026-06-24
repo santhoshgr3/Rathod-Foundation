@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useCMS } from "../contexts/CMSContext";
-import { uid, type CMSGalleryPhoto, type CMSTimelineEntry, type CMSWard, type CMSStat, type CMSWorkCase } from "../lib/cms";
+import { uid, type CMSGalleryPhoto, type CMSTimelineEntry, type CMSWard, type CMSStat, type CMSWorkCase, type CMSChairman, type CMSStep } from "../lib/cms";
 import { listCases, listVolunteers, updateCaseStage, STAGES, type Case as CaseT, type Volunteer as VolunteerT } from "../lib/store";
 
 // ── Auth gate ─────────────────────────────────────────────────────────────────
@@ -207,6 +207,121 @@ function SiteInfoTab() {
 
         <button onClick={save} className={btn("saffron") + " px-5 py-2.5 text-sm"}>Save changes</button>
       </div>
+    </div>
+  );
+}
+
+// ── Tab: Chairman ─────────────────────────────────────────────────────────────
+function ChairmanTab() {
+  const { cms, updateCMS } = useCMS();
+  const [local, setLocal] = useState<CMSChairman>(() => ({ ...cms.chairman, highlights: [...cms.chairman.highlights] }));
+  const [saved, setSaved] = useState(false);
+  const photoUpload = useImageUpload((base64) => setLocal((p) => ({ ...p, photo: base64 })));
+
+  const save = () => {
+    updateCMS((prev) => ({ ...prev, chairman: { ...local } }));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  const set = (k: keyof CMSChairman) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setLocal((p) => ({ ...p, [k]: e.target.value }));
+
+  const updateHighlight = (i: number, val: string) =>
+    setLocal((p) => { const h = [...p.highlights]; h[i] = val; return { ...p, highlights: h }; });
+
+  const removeHighlight = (i: number) =>
+    setLocal((p) => ({ ...p, highlights: p.highlights.filter((_, idx) => idx !== i) }));
+
+  const addHighlight = () =>
+    setLocal((p) => ({ ...p, highlights: [...p.highlights, "New highlight"] }));
+
+  return (
+    <div className="max-w-2xl">
+      <SaveBanner saved={saved} />
+      <h2 className="text-xl font-display font-bold mb-6">Chairman — Jeevan Raj Rathod</h2>
+      {photoUpload.input}
+      <div className="space-y-4">
+        <div className="flex gap-4 items-start">
+          <div className="w-24 h-24 rounded-xl overflow-hidden shrink-0 border" style={{ borderColor: "var(--color-line)" }}>
+            <img src={local.photo} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+          </div>
+          <div className="flex-1 space-y-2">
+            <button onClick={photoUpload.trigger} disabled={photoUpload.uploading} className={btn("ghost") + " text-xs"}>
+              {photoUpload.uploading ? "Uploading…" : "📤 Change photo"}
+            </button>
+            <Field label="Or paste photo URL/path">
+              <input className={inp} value={local.photo.startsWith("data:") ? "(uploaded image)" : local.photo} onChange={set("photo")} placeholder="/img/chairman.jpeg" />
+            </Field>
+            {photoUpload.sizeWarn && <p className="text-xs text-red-600">{photoUpload.sizeWarn}</p>}
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field label="Name"><input className={inp} value={local.name} onChange={set("name")} /></Field>
+          <Field label="Role / title"><input className={inp} value={local.role} onChange={set("role")} /></Field>
+        </div>
+        <Field label="Affiliation"><input className={inp} value={local.affiliation} onChange={set("affiliation")} /></Field>
+        <Field label="Bio paragraph">
+          <textarea className={inp + " h-28 resize-none"} value={local.bio} onChange={set("bio")} />
+        </Field>
+
+        <div>
+          <h3 className="font-semibold text-sm mb-2">Highlights (bullet points)</h3>
+          <div className="space-y-2 mb-2">
+            {local.highlights.map((h, i) => (
+              <div key={i} className="flex gap-2">
+                <input className={inp + " flex-1"} value={h} onChange={(e) => updateHighlight(i, e.target.value)} />
+                <button onClick={() => removeHighlight(i)} className={btn("red")}>✕</button>
+              </div>
+            ))}
+          </div>
+          <button onClick={addHighlight} className={btn("ghost")}>+ Add highlight</button>
+        </div>
+
+        <button onClick={save} className={btn("saffron") + " px-5 py-2.5 text-sm"}>Save changes</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Tab: Process Steps ────────────────────────────────────────────────────────
+function ProcessStepsTab() {
+  const { cms, updateCMS } = useCMS();
+  const [saved, setSaved] = useState(false);
+  const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
+
+  const updateStep = (i: number, field: keyof CMSStep, value: string) =>
+    updateCMS((p) => { const steps = [...p.steps]; steps[i] = { ...steps[i], [field]: value }; return { ...p, steps }; });
+
+  const removeStep = (i: number) => { updateCMS((p) => ({ ...p, steps: p.steps.filter((_, idx) => idx !== i) })); flash(); };
+
+  const addStep = () => {
+    const n = (cms.steps.length + 1).toString().padStart(2, "0");
+    updateCMS((p) => ({ ...p, steps: [...p.steps, { n, title: "New step", text: "Description here." }] }));
+    flash();
+  };
+
+  return (
+    <div className="max-w-2xl">
+      <SaveBanner saved={saved} />
+      <h2 className="text-xl font-display font-bold mb-2">Process Steps</h2>
+      <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>These appear on the How It Works / Process page (steps 01–04).</p>
+      <div className="space-y-3 mb-5">
+        {cms.steps.map((s, i) => (
+          <div key={i} className="rounded-xl border p-4 space-y-2" style={{ borderColor: "var(--color-line)", borderLeft: "4px solid var(--color-saffron)" }}>
+            <div className="flex gap-2">
+              <Field label="Step #"><input className={inp + " w-16"} value={s.n} onChange={(e) => updateStep(i, "n", e.target.value)} /></Field>
+              <div className="flex-1"><Field label="Title"><input className={inp} value={s.title} onChange={(e) => updateStep(i, "title", e.target.value)} /></Field></div>
+              <button onClick={() => removeStep(i)} className={btn("red") + " mt-5"}>Remove</button>
+            </div>
+            <Field label="Description">
+              <textarea className={inp + " h-16 resize-none"} value={s.text} onChange={(e) => updateStep(i, "text", e.target.value)} />
+            </Field>
+          </div>
+        ))}
+      </div>
+      <button onClick={addStep} className={btn("saffron")}>+ Add step</button>
     </div>
   );
 }
@@ -685,6 +800,32 @@ function BiographyTab() {
         ))}
       </div>
       <button onClick={addJ} className={btn("saffron")}>+ Add entry</button>
+
+      <div className="border-t mt-8 pt-6" style={{ borderColor: "var(--color-line)" }}>
+        <h3 className="font-semibold text-sm mb-1">Values cards (3 cards below timeline)</h3>
+        <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>The Accountable / Fast / For everyone cards. Icon must be one of: shield, clock, users.</p>
+        <div className="space-y-3">
+          {cms.bio.values.map((v, i) => (
+            <div key={i} className="rounded-xl border p-4 space-y-2" style={{ borderColor: "var(--color-line)" }}>
+              <div className="grid sm:grid-cols-3 gap-2">
+                <Field label="Icon key">
+                  <select className={inp} value={v.icon} onChange={(e) => updateCMS((p) => { const vals = [...p.bio.values]; vals[i] = { ...vals[i], icon: e.target.value }; return { ...p, bio: { ...p.bio, values: vals } }; })}>
+                    <option value="shield">shield</option>
+                    <option value="clock">clock</option>
+                    <option value="users">users</option>
+                  </select>
+                </Field>
+                <div className="sm:col-span-2">
+                  <Field label="Title"><input className={inp} value={v.title} onChange={(e) => { const vals = [...cms.bio.values]; vals[i] = { ...vals[i], title: e.target.value }; updateCMS((p) => ({ ...p, bio: { ...p.bio, values: vals } })); }} /></Field>
+                </div>
+              </div>
+              <Field label="Text">
+                <textarea className={inp + " h-14 resize-none"} value={v.text} onChange={(e) => { const vals = [...cms.bio.values]; vals[i] = { ...vals[i], text: e.target.value }; updateCMS((p) => ({ ...p, bio: { ...p.bio, values: vals } })); }} />
+              </Field>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -840,12 +981,14 @@ function ResetTab() {
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "site", label: "Site Info" },
+  { key: "chairman", label: "Chairman" },
   { key: "gallery", label: "Gallery" },
   { key: "timeline", label: "Timeline" },
   { key: "works", label: "Work Cases" },
   { key: "wards", label: "Ward Data" },
   { key: "stats", label: "Stats & Ticker" },
   { key: "bio", label: "Biography" },
+  { key: "steps", label: "Process Steps" },
   { key: "submissions", label: "Submissions" },
   { key: "volunteers", label: "Volunteers" },
   { key: "reset", label: "Reset" },
@@ -908,12 +1051,14 @@ export default function Admin() {
       <div className="max-w-5xl mx-auto px-4 py-8">
         {tab === "overview" && <OverviewTab />}
         {tab === "site" && <SiteInfoTab />}
+        {tab === "chairman" && <ChairmanTab />}
         {tab === "gallery" && <GalleryTab />}
         {tab === "timeline" && <TimelineTab />}
         {tab === "works" && <WorkCasesTab />}
         {tab === "wards" && <WardDataTab />}
         {tab === "stats" && <StatsTickerTab />}
         {tab === "bio" && <BiographyTab />}
+        {tab === "steps" && <ProcessStepsTab />}
         {tab === "submissions" && <SubmissionsTab />}
         {tab === "volunteers" && <VolunteersTab />}
         {tab === "reset" && <ResetTab />}

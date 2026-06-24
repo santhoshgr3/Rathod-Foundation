@@ -1,11 +1,10 @@
 import { useCMS } from "../contexts/CMSContext";
-import { chairman } from "../data/content";
 import { Icon, Reveal, SectionHead } from "./ui";
 
 const valueIcons = { shield: Icon.shield, clock: Icon.clock, users: Icon.users };
 
 export default function Bio() {
-  const { cms: { bio, leader } } = useCMS();
+  const { cms: { bio, leader, chairman } } = useCMS();
   return (
     <section className="relative py-20 sm:py-24 bg-white">
       <div className="mx-auto max-w-7xl px-5 sm:px-8">
