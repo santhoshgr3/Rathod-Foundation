@@ -395,8 +395,8 @@ function GalleryTab() {
 
   const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2500); };
 
-  /* ── new photo upload hook ── */
-  const newUpload = useImageUpload((base64) => setNewPhoto((p) => ({ ...p, src: base64 })));
+  /* ── new media upload hook ── */
+  const newUpload = useMediaUpload((base64) => setNewPhoto((p) => ({ ...p, src: base64 })));
 
   const addPhoto = () => {
     if (!newPhoto.src.trim()) return;
@@ -434,8 +434,7 @@ function GalleryTab() {
       {/* ── Add new photo form ── */}
       <div className="rounded-2xl p-5 border-2 border-dashed space-y-4" style={{ borderColor: "var(--color-saffron)" }}>
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm">Add new photo</h3>
-          {/* Mode toggle */}
+          <h3 className="font-semibold text-sm">Add photo or video</h3>
           <div className="flex rounded-lg overflow-hidden border text-xs font-semibold" style={{ borderColor: "var(--color-line)" }}>
             {(["upload", "url"] as const).map((m) => (
               <button
@@ -452,17 +451,19 @@ function GalleryTab() {
           </div>
         </div>
 
-        {/* Image input */}
         {inputMode === "upload" ? (
           <div>
             {newUpload.input}
             {newPhoto.src.startsWith("data:") ? (
-              /* Preview */
-              <div className="relative inline-block">
-                <img src={newPhoto.src} alt="preview" className="h-40 rounded-xl object-cover border" style={{ borderColor: "var(--color-line)" }} />
+              <div className="relative inline-block w-full">
+                {newPhoto.src.startsWith("data:video") ? (
+                  <video src={newPhoto.src} controls className="w-full max-h-48 rounded-xl bg-black" />
+                ) : (
+                  <img src={newPhoto.src} alt="preview" className="w-full h-40 rounded-xl object-cover border" style={{ borderColor: "var(--color-line)" }} />
+                )}
                 <button
                   onClick={() => setNewPhoto((p) => ({ ...p, src: "" }))}
-                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-600 text-white text-xs flex items-center justify-center shadow"
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-600 text-white text-xs flex items-center justify-center shadow"
                 >✕</button>
               </div>
             ) : (
@@ -472,25 +473,25 @@ function GalleryTab() {
                 className="w-full border-2 border-dashed rounded-xl py-10 flex flex-col items-center gap-2 transition-colors hover:border-[--color-saffron]"
                 style={{ borderColor: "var(--color-line)", color: "var(--color-muted)" }}
               >
-                <span className="text-3xl">{newUpload.uploading ? "⏳" : "🖼️"}</span>
-                <span className="text-sm font-medium">{newUpload.uploading ? "Reading file…" : "Click to choose an image"}</span>
-                <span className="text-xs">JPG, PNG, WEBP — max 4 MB</span>
+                <span className="text-3xl">{newUpload.uploading ? "⏳" : "🎬"}</span>
+                <span className="text-sm font-medium">{newUpload.uploading ? "Reading file…" : "Click to choose image or video"}</span>
+                <span className="text-xs">JPG · PNG · WEBP (max 4 MB) &nbsp;·&nbsp; MP4 · MOV · WEBM (max 20 MB)</span>
               </button>
             )}
-            {newUpload.sizeWarn && (
-              <p className="text-xs text-red-600 mt-1">{newUpload.sizeWarn}</p>
-            )}
+            {newUpload.sizeWarn && <p className="text-xs text-red-600 mt-1">{newUpload.sizeWarn}</p>}
           </div>
         ) : (
-          <Field label="Image URL or path">
+          <Field label="Image or video URL / path">
             <input
               className={inp}
               value={newPhoto.src}
               onChange={(e) => setNewPhoto((p) => ({ ...p, src: e.target.value }))}
-              placeholder="/img/my-photo.jpg  or  https://example.com/photo.jpg"
+              placeholder="/img/my-photo.jpg  or  https://example.com/video.mp4"
             />
             {newPhoto.src && !newPhoto.src.startsWith("data:") && (
-              <img src={newPhoto.src} alt="" className="mt-2 h-28 rounded-lg object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+              /\.(mp4|webm|mov|avi)$/i.test(newPhoto.src)
+                ? <video src={newPhoto.src} controls className="mt-2 w-full max-h-36 rounded-lg bg-black" />
+                : <img src={newPhoto.src} alt="" className="mt-2 h-28 rounded-lg object-cover w-full" onError={(e) => { e.currentTarget.style.display = "none"; }} />
             )}
           </Field>
         )}
@@ -538,8 +539,9 @@ function ExistingPhotoRow({
   onUpdateField: (id: string, field: keyof CMSGalleryPhoto, val: string) => void;
   onRemove: (id: string) => void;
 }) {
-  const replaceUpload = useImageUpload((base64) => onUpdateField(photo.id, "src", base64));
-  const srcLabel = photo.src.startsWith("data:") ? "📎 Uploaded image" : photo.src;
+  const replaceUpload = useMediaUpload((base64) => onUpdateField(photo.id, "src", base64));
+  const isVideo = photo.src.startsWith("data:video") || /\.(mp4|webm|mov|avi)$/i.test(photo.src);
+  const srcLabel = photo.src.startsWith("data:") ? (isVideo ? "📎 Uploaded video" : "📎 Uploaded image") : photo.src;
 
   return (
     <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: "var(--color-line)" }}>
@@ -547,7 +549,10 @@ function ExistingPhotoRow({
       <div className="flex items-center gap-3">
         {/* Thumbnail */}
         <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 flex items-center justify-center text-xl" style={{ background: "var(--color-saffron-tint)" }}>
-          <img src={photo.src} alt="" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+          {isVideo
+            ? <video src={photo.src} className="w-full h-full object-cover" muted playsInline />
+            : <img src={photo.src} alt="" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+          }
         </div>
 
         <div className="flex-1 min-w-0">
@@ -576,7 +581,7 @@ function ExistingPhotoRow({
           <button
             onClick={replaceUpload.trigger}
             className={btn("ghost") + " whitespace-nowrap"}
-            title="Replace with a new image"
+            title="Replace with a new image or video"
           >
             {replaceUpload.uploading ? "⏳" : "🔄 Replace"}
           </button>

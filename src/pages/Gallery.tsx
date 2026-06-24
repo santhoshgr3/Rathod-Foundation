@@ -6,10 +6,18 @@ import { useT } from "../lib/i18n";
 import type { CMSGalleryPhoto } from "../lib/cms";
 
 // Build before/after photo entries from CMS work cases
+function resolveMediaSrc(src: string): string {
+  return src.startsWith("data:") || src.startsWith("http") || src.startsWith("/") ? src : `/img/${src}`;
+}
+
+function isVideoSrc(src: string): boolean {
+  return src.startsWith("data:video") || /\.(mp4|webm|mov|avi)$/i.test(src);
+}
+
 function buildBAPhotos(workCases: { id: string; title: string; location: string; before: string; after: string; days: number }[]): CMSGalleryPhoto[] {
   return workCases.flatMap((c) => [
-    { id: `${c.id}-before`, src: `/img/${c.before}`, caption: `Before — ${c.title} (${c.location})`, tag: "work" as const },
-    { id: `${c.id}-after`, src: `/img/${c.after}`, caption: `After — ${c.title} · Resolved in ${c.days} days`, tag: "work" as const },
+    { id: `${c.id}-before`, src: resolveMediaSrc(c.before), caption: `Before — ${c.title} (${c.location})`, tag: "work" as const },
+    { id: `${c.id}-after`, src: resolveMediaSrc(c.after), caption: `After — ${c.title} · Resolved in ${c.days} days`, tag: "work" as const },
   ]);
 }
 
@@ -45,23 +53,35 @@ function Lightbox({ photo, onClose, onPrev, onNext }: { photo: CMSGalleryPhoto; 
           <button onClick={onClose} className="absolute -top-10 right-0 text-white/70 hover:text-white text-sm font-semibold">
             {t("gallery.close")}
           </button>
-          <img
-            src={photo.src}
-            alt={photo.caption}
-            className="w-full max-h-[75vh] object-contain rounded-2xl"
-            onError={(e) => {
-              const el = e.currentTarget;
-              el.style.display = "none";
-              const p = el.parentElement;
-              if (p && !p.querySelector(".lb-ph")) {
-                const d = document.createElement("div");
-                d.className = "lb-ph flex items-center justify-center h-64 rounded-2xl text-white/40 text-sm";
-                d.style.background = "rgba(255,255,255,0.07)";
-                d.textContent = t("gallery.comingSoon");
-                p.appendChild(d);
-              }
-            }}
-          />
+          {isVideoSrc(photo.src) ? (
+            <video
+              src={photo.src}
+              controls
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full max-h-[75vh] rounded-2xl bg-black"
+            />
+          ) : (
+            <img
+              src={photo.src}
+              alt={photo.caption}
+              className="w-full max-h-[75vh] object-contain rounded-2xl"
+              onError={(e) => {
+                const el = e.currentTarget;
+                el.style.display = "none";
+                const p = el.parentElement;
+                if (p && !p.querySelector(".lb-ph")) {
+                  const d = document.createElement("div");
+                  d.className = "lb-ph flex items-center justify-center h-64 rounded-2xl text-white/40 text-sm";
+                  d.style.background = "rgba(255,255,255,0.07)";
+                  d.textContent = t("gallery.comingSoon");
+                  p.appendChild(d);
+                }
+              }}
+            />
+          )}
           <p className="mt-3 text-center text-white/80 text-sm">{photo.caption}</p>
           <button onClick={onPrev} className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-14 text-white/60 hover:text-white text-3xl font-bold">‹</button>
           <button onClick={onNext} className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-14 text-white/60 hover:text-white text-3xl font-bold">›</button>
@@ -76,6 +96,7 @@ function PhotoCard({ photo, index, onClick }: { photo: CMSGalleryPhoto; index: n
   const { t } = useT();
   const [imgOk, setImgOk] = useState(true);
   const accentColor = photo.tag === "leader" ? "var(--color-saffron)" : photo.tag === "work" ? "var(--color-green)" : "rgba(0,0,0,0.45)";
+  const videoSrc = isVideoSrc(photo.src);
 
   return (
     <motion.div
@@ -88,7 +109,14 @@ function PhotoCard({ photo, index, onClick }: { photo: CMSGalleryPhoto; index: n
       onClick={onClick}
     >
       <div className="relative overflow-hidden" style={{ aspectRatio: "4/3" }}>
-        {imgOk ? (
+        {videoSrc ? (
+          <div className="relative w-full h-full bg-black">
+            <video src={photo.src} muted playsInline loop className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center text-white text-lg">▶</span>
+            </span>
+          </div>
+        ) : imgOk ? (
           <img
             src={photo.src}
             alt={photo.caption}
