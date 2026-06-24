@@ -3,49 +3,26 @@ import { useState } from "react";
 import { useCMS } from "../contexts/CMSContext";
 import { categories } from "../data/content";
 import { Icon, Reveal, SectionHead } from "./ui";
-
-type Ticket = {
-  id: string;
-  name: string;
-  category: string;
-  location: string;
-  details: string;
-  createdAt: string;
-  status: "Received";
-};
-
-const STORE_KEY = "rf_tickets";
-
-function loadTickets(): Record<string, Ticket> {
-  try {
-    return JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-
-function makeTrackingId(): string {
-  const year = new Date().getFullYear();
-  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
-  const seq = Math.floor(1000 + Math.random() * 9000);
-  return `RF-${year}-${seq}-${rand}`;
-}
+import { createCase, getCase, STAGES, type Case } from "../lib/store";
 
 export default function ReportForm() {
   const { cms: { leader } } = useCMS();
   const [form, setForm] = useState({ name: "", phone: "", category: categories[0], location: "", details: "" });
-  const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [ticket, setTicket] = useState<Case | null>(null);
   const [copied, setCopied] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   const [lookupId, setLookupId] = useState("");
-  const [lookupResult, setLookupResult] = useState<Ticket | "none" | null>(null);
+  const [lookupResult, setLookupResult] = useState<Case | "none" | null>(null);
+  const [looking, setLooking] = useState(false);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     const errs: Record<string, boolean> = {};
     if (!form.name.trim()) errs.name = true;
     if (!/^[+\d][\d\s-]{7,}$/.test(form.phone.trim())) errs.phone = true;
@@ -54,19 +31,21 @@ export default function ReportForm() {
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
-    const t: Ticket = {
-      id: makeTrackingId(),
-      name: form.name.trim(),
-      category: form.category,
-      location: form.location.trim(),
-      details: form.details.trim(),
-      createdAt: new Date().toISOString(),
-      status: "Received",
-    };
-    const all = loadTickets();
-    all[t.id] = t;
-    localStorage.setItem(STORE_KEY, JSON.stringify(all));
-    setTicket(t);
+    setSubmitting(true);
+    try {
+      const c = await createCase({
+        type: "civic",
+        category: form.category,
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        location: form.location.trim(),
+        details: form.details.trim(),
+        lang: "en",
+      });
+      setTicket(c);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const reset = () => {
@@ -83,11 +62,16 @@ export default function ReportForm() {
     setTimeout(() => setCopied(false), 1800);
   };
 
-  const runLookup = () => {
+  const runLookup = async () => {
     const id = lookupId.trim().toUpperCase();
     if (!id) return;
-    const all = loadTickets();
-    setLookupResult(all[id] ?? "none");
+    setLooking(true);
+    try {
+      const c = await getCase(id);
+      setLookupResult(c ?? "none");
+    } finally {
+      setLooking(false);
+    }
   };
 
   return (
@@ -96,7 +80,7 @@ export default function ReportForm() {
         <SectionHead
           eyebrow="Report an issue"
           title={<>Tell us what's wrong. <span style={{ color: "var(--color-green-text)" }}>Get a tracking number.</span></>}
-          intro="Fill this in and you'll instantly receive a reference ID you can use to follow your case. It's saved on this device so you can check back anytime."
+          intro="Fill this in and you'll instantly receive a reference ID you can use to follow your case."
         />
 
         <div className="mt-12 grid lg:grid-cols-[1.25fr_0.75fr] gap-8 items-start">
@@ -126,9 +110,8 @@ export default function ReportForm() {
                     <Field label="What's the problem?" error={errors.details}>
                       <textarea rows={4} className={inputCls(errors.details) + " resize-none"} value={form.details} onChange={set("details")} placeholder="Describe the issue, how long it's been there, and who it affects." />
                     </Field>
-                    <button type="submit" className="group w-full inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-semibold transition-transform hover:scale-[1.01]" style={{ background: "var(--color-saffron)", color: "#fff" }}>
-                      Submit & get tracking number
-                      <Icon.arrow className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                    <button type="submit" disabled={submitting} className="group w-full inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-semibold transition-transform hover:scale-[1.01] disabled:opacity-60" style={{ background: "var(--color-saffron)", color: "#fff" }}>
+                      {submitting ? "Submitting…" : <>Submit &amp; get tracking number <Icon.arrow className="w-4 h-4 transition-transform group-hover:translate-x-1" /></>}
                     </button>
                     <p className="text-xs text-center" style={{ color: "var(--color-muted)" }}>By submitting you agree to be contacted about this issue.</p>
                   </motion.form>
@@ -150,7 +133,7 @@ export default function ReportForm() {
 
                     <div className="mt-6 grid grid-cols-2 gap-3 max-w-md mx-auto text-left text-sm">
                       <Summary k="Issue" v={ticket.category} />
-                      <Summary k="Status" v={ticket.status} />
+                      <Summary k="Status" v={STAGES[ticket.stageIndex]?.en ?? "Received"} />
                       <Summary k="Location" v={ticket.location} />
                       <Summary k="Logged" v={new Date(ticket.createdAt).toLocaleString()} />
                     </div>
@@ -183,18 +166,21 @@ export default function ReportForm() {
                     className="flex-1 rounded-xl px-3 py-2.5 text-sm outline-none bg-white"
                     style={{ border: "1px solid var(--color-line)" }}
                   />
-                  <button onClick={runLookup} className="rounded-xl px-4 font-semibold text-sm" style={{ background: "var(--color-saffron)", color: "#fff" }}>Track</button>
+                  <button onClick={runLookup} disabled={looking} className="rounded-xl px-4 font-semibold text-sm disabled:opacity-60" style={{ background: "var(--color-saffron)", color: "#fff" }}>
+                    {looking ? "…" : "Track"}
+                  </button>
                 </div>
                 {lookupResult && lookupResult !== "none" && (
                   <div className="mt-4 rounded-xl p-4 text-sm bg-white" style={{ border: "1px solid var(--color-line)" }}>
                     <div className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: "var(--color-green-text)" }}>
-                      <span className="w-2 h-2 rounded-full" style={{ background: "var(--color-green)" }} /> {lookupResult.status}
+                      <span className="w-2 h-2 rounded-full" style={{ background: "var(--color-green)" }} />
+                      {STAGES[lookupResult.stageIndex]?.en ?? "Received"}
                     </div>
                     <div className="font-semibold mt-1">{lookupResult.category}</div>
                     <div style={{ color: "var(--color-muted)" }}>{lookupResult.location} · logged {new Date(lookupResult.createdAt).toLocaleDateString()}</div>
                   </div>
                 )}
-                {lookupResult === "none" && <div className="mt-4 text-sm" style={{ color: "var(--color-muted)" }}>No report found for that number on this device.</div>}
+                {lookupResult === "none" && <div className="mt-4 text-sm" style={{ color: "var(--color-muted)" }}>No report found for that number.</div>}
               </div>
 
               <div className="rounded-3xl p-6 card">

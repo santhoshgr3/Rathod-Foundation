@@ -1030,7 +1030,7 @@ function SubmissionsTab() {
       <h2 className="text-xl font-display font-bold mb-2">Submitted Cases</h2>
       <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>
         {cases.length} cases total. Update the stage to move a case through the verification pipeline.
-        <br /><span className="text-xs">Updates save to Supabase when configured; otherwise to this browser.</span>
+        <br /><span className="text-xs">All updates save directly to Supabase and reflect immediately for every user.</span>
       </p>
 
       <div className="overflow-x-auto">
