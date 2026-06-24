@@ -327,6 +327,35 @@ function ProcessStepsTab() {
 }
 
 // ── Tab: Gallery ──────────────────────────────────────────────────────────────
+function useMediaUpload(onResult: (base64: string) => void, accept = "image/*,video/*") {
+  const ref = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [sizeWarn, setSizeWarn] = useState<string | null>(null);
+
+  const trigger = () => ref.current?.click();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const mb = file.size / (1024 * 1024);
+    const isVideo = file.type.startsWith("video/");
+    const limit = isVideo ? 20 : 4;
+    if (mb > limit) {
+      setSizeWarn(`File is ${mb.toFixed(1)} MB — max ${limit} MB for ${isVideo ? "video" : "image"}. For large videos use a hosted URL instead.`);
+      return;
+    }
+    setSizeWarn(null);
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload = (ev) => { onResult(ev.target?.result as string); setUploading(false); };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const input = <input ref={ref} type="file" accept={accept} className="hidden" onChange={handleChange} />;
+  return { trigger, uploading, sizeWarn, input };
+}
+
 function useImageUpload(onResult: (base64: string) => void) {
   const ref = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -626,6 +655,153 @@ function TimelineTab() {
   );
 }
 
+// ── Media field (upload or URL) used inside WorkCaseRow ──────────────────────
+function WorkCaseMediaField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+}) {
+  const isData = value.startsWith("data:");
+  const isVideo = isData
+    ? value.startsWith("data:video")
+    : /\.(mp4|webm|mov|avi|mkv)$/i.test(value);
+  const [mode, setMode] = useState<"upload" | "url">(isData ? "upload" : "url");
+  const upload = useMediaUpload((b64) => { onChange(b64); setMode("upload"); });
+
+  return (
+    <div className="space-y-2">
+      {upload.input}
+      <span className="block text-xs font-semibold" style={{ color: "var(--color-muted)" }}>{label}</span>
+
+      {/* Mode toggle */}
+      <div className="flex rounded-xl overflow-hidden border text-xs font-semibold" style={{ borderColor: "var(--color-line)" }}>
+        {(["upload", "url"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className="flex-1 py-2 transition-colors"
+            style={mode === m
+              ? { background: "var(--color-saffron)", color: "#fff" }
+              : { background: "#fff", color: "var(--color-muted)" }}
+          >
+            {m === "upload" ? "📤 Upload" : "🔗 URL / Path"}
+          </button>
+        ))}
+      </div>
+
+      {mode === "upload" ? (
+        <div>
+          {value && isData ? (
+            /* preview */
+            <div className="relative inline-block w-full">
+              {isVideo ? (
+                <video src={value} controls className="w-full max-h-40 rounded-xl object-cover bg-black" />
+              ) : (
+                <img src={value} alt={label} className="w-full h-32 rounded-xl object-cover" />
+              )}
+              <button
+                onClick={() => onChange("")}
+                className="absolute top-1 right-1 w-7 h-7 rounded-full bg-red-600 text-white text-xs flex items-center justify-center shadow-md"
+              >✕</button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={upload.trigger}
+              disabled={upload.uploading}
+              className="w-full border-2 border-dashed rounded-xl py-6 flex flex-col items-center gap-1.5 transition-colors hover:border-[--color-saffron]"
+              style={{ borderColor: "var(--color-line)", color: "var(--color-muted)" }}
+            >
+              <span className="text-2xl">{upload.uploading ? "⏳" : "🖼️"}</span>
+              <span className="text-xs font-medium">{upload.uploading ? "Reading file…" : "Click to upload image or video"}</span>
+              <span className="text-[10px]">JPG · PNG · MP4 · MOV · max 20 MB</span>
+            </button>
+          )}
+          {upload.sizeWarn && <p className="text-xs text-red-600">{upload.sizeWarn}</p>}
+        </div>
+      ) : (
+        <div>
+          <input
+            className={inp}
+            value={isData ? "" : value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="before-after/drain-before.jpg  or  https://…"
+          />
+          {value && !isData && (
+            isVideo
+              ? <video src={value} controls className="mt-2 w-full max-h-32 rounded-xl bg-black" />
+              : <img src={value} alt="" className="mt-2 h-24 rounded-xl object-cover w-full" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Isolated row so each case has its own upload hooks */
+function WorkCaseRow({
+  c,
+  onUpdate,
+  onRemove,
+}: {
+  c: CMSWorkCase;
+  onUpdate: (field: keyof CMSWorkCase, value: string | number) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border bg-white p-5 space-y-4" style={{ borderColor: "var(--color-line)" }}>
+      {/* Header row */}
+      <div className="flex items-start gap-3">
+        <div className="flex-1">
+          <Field label="Case title">
+            <input className={inp} value={c.title} onChange={(e) => onUpdate("title", e.target.value)} />
+          </Field>
+        </div>
+        <button onClick={onRemove} className={btn("red") + " mt-6 shrink-0"}>Remove</button>
+      </div>
+
+      {/* Meta row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Field label="Date">
+          <input className={inp} value={c.date} onChange={(e) => onUpdate("date", e.target.value)} />
+        </Field>
+        <Field label="Location">
+          <input className={inp} value={c.location} onChange={(e) => onUpdate("location", e.target.value)} />
+        </Field>
+        <Field label="Category">
+          <input className={inp} value={c.category} onChange={(e) => onUpdate("category", e.target.value)} />
+        </Field>
+        <Field label="Days to resolve">
+          <input type="number" className={inp} value={c.days} onChange={(e) => onUpdate("days", Number(e.target.value))} />
+        </Field>
+      </div>
+
+      {/* Before / After media */}
+      <div className="grid sm:grid-cols-2 gap-4">
+        <WorkCaseMediaField
+          label="Before (image or video)"
+          value={c.before}
+          onChange={(v) => onUpdate("before", v)}
+        />
+        <WorkCaseMediaField
+          label="After (image or video)"
+          value={c.after}
+          onChange={(v) => onUpdate("after", v)}
+        />
+      </div>
+
+      <Field label="Summary">
+        <textarea className={inp + " h-16 resize-none"} value={c.summary} onChange={(e) => onUpdate("summary", e.target.value)} />
+      </Field>
+    </div>
+  );
+}
+
 // ── Tab: Work Cases ───────────────────────────────────────────────────────────
 function WorkCasesTab() {
   const { cms, updateCMS } = useCMS();
@@ -641,51 +817,44 @@ function WorkCasesTab() {
   };
 
   const addCase = () => {
-    const newCase: CMSWorkCase = {
-      id: uid(),
-      title: "New case",
-      date: new Date().toLocaleDateString("en-IN", { month: "short", year: "numeric" }),
-      location: "Banjara Hills",
-      category: "Other",
-      days: 7,
-      before: "",
-      after: "",
-      summary: "",
-    };
-    updateCMS((p) => ({ ...p, workCases: [...p.workCases, newCase] }));
+    updateCMS((p) => ({
+      ...p,
+      workCases: [
+        ...p.workCases,
+        {
+          id: uid(),
+          title: "New case",
+          date: new Date().toLocaleDateString("en-IN", { month: "short", year: "numeric" }),
+          location: "Banjara Hills",
+          category: "Other",
+          days: 7,
+          before: "",
+          after: "",
+          summary: "",
+        },
+      ],
+    }));
     flash();
   };
 
   return (
     <div>
       <SaveBanner saved={saved} />
-      <h2 className="text-xl font-display font-bold mb-2">Before & After Cases</h2>
-      <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>Shown on the Work Done page. Before/after photo paths relative to <code>/public/img/</code>.</p>
-
-      <div className="space-y-4 mb-6">
+      <h2 className="text-xl font-display font-bold mb-1">Before &amp; After Cases</h2>
+      <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>
+        Upload images or videos directly, or paste a file path / URL. Shown on the Work Done page.
+      </p>
+      <div className="space-y-5 mb-6">
         {cms.workCases.map((c) => (
-          <div key={c.id} className="rounded-xl border p-4 space-y-3" style={{ borderColor: "var(--color-line)" }}>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex-1"><Field label="Title"><input className={inp} value={c.title} onChange={(e) => updateCase(c.id, "title", e.target.value)} /></Field></div>
-              <button onClick={() => removeCase(c.id)} className={btn("red") + " mt-5"}>Remove</button>
-            </div>
-            <div className="grid sm:grid-cols-3 gap-3">
-              <Field label="Date"><input className={inp} value={c.date} onChange={(e) => updateCase(c.id, "date", e.target.value)} /></Field>
-              <Field label="Location"><input className={inp} value={c.location} onChange={(e) => updateCase(c.id, "location", e.target.value)} /></Field>
-              <Field label="Category"><input className={inp} value={c.category} onChange={(e) => updateCase(c.id, "category", e.target.value)} /></Field>
-            </div>
-            <div className="grid sm:grid-cols-3 gap-3">
-              <Field label="Days to resolve"><input type="number" className={inp} value={c.days} onChange={(e) => updateCase(c.id, "days", Number(e.target.value))} /></Field>
-              <Field label="Before photo path"><input className={inp} value={c.before} onChange={(e) => updateCase(c.id, "before", e.target.value)} placeholder="before-after/drain-before.jpg" /></Field>
-              <Field label="After photo path"><input className={inp} value={c.after} onChange={(e) => updateCase(c.id, "after", e.target.value)} placeholder="before-after/drain-after.jpg" /></Field>
-            </div>
-            <Field label="Summary">
-              <textarea className={inp + " h-16 resize-none"} value={c.summary} onChange={(e) => updateCase(c.id, "summary", e.target.value)} />
-            </Field>
-          </div>
+          <WorkCaseRow
+            key={c.id}
+            c={c}
+            onUpdate={(field, value) => updateCase(c.id, field, value)}
+            onRemove={() => removeCase(c.id)}
+          />
         ))}
       </div>
-      <button onClick={addCase} className={btn("saffron") + " px-5 py-2"}>+ Add new case</button>
+      <button onClick={addCase} className={btn("saffron") + " px-5 py-2.5"}>+ Add new case</button>
     </div>
   );
 }
