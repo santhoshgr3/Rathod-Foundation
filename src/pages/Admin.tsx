@@ -1348,7 +1348,7 @@ function SidebarNav({ tab, setTab, onClose }: { tab: TabKey; setTab: (t: TabKey)
 
 // ── Main Admin page ───────────────────────────────────────────────────────────
 export default function Admin() {
-  const { cms } = useCMS();
+  const { cms, saving } = useCMS();
   const [authed, setAuthed] = useState(() => sessionStorage.getItem("rf_admin") === "1");
   const [tab, setTab] = useState<TabKey>("overview");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -1374,6 +1374,16 @@ export default function Admin() {
       <aside className="hidden md:flex flex-col w-56 shrink-0 bg-white border-r sticky top-0 h-screen overflow-hidden" style={{ borderColor: "var(--color-line)" }}>
         <SidebarNav tab={tab} setTab={setTab} />
         <div className="px-4 py-4 border-t space-y-2" style={{ borderColor: "var(--color-line)" }}>
+          {saving ? (
+            <div className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl animate-pulse" style={{ background: "var(--color-green-tint)", color: "var(--color-green-text)" }}>
+              <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" strokeOpacity=".25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+              Saving to Supabase…
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-xl" style={{ color: "var(--color-green-text)", background: "var(--color-green-tint)" }}>
+              <span>✓</span> All changes saved to DB
+            </div>
+          )}
           <Link to="/" className="flex items-center gap-2 text-xs font-medium rounded-xl px-3 py-2.5 transition-colors hover:bg-gray-50" style={{ color: "var(--color-muted)" }}>
             ← Back to website
           </Link>
@@ -1424,6 +1434,11 @@ export default function Admin() {
             </div>
             <div className="text-xs" style={{ color: "var(--color-muted)" }}>Admin Panel</div>
           </div>
+          {saving && (
+            <span className="text-[10px] font-semibold px-2 py-1 rounded-lg animate-pulse shrink-0" style={{ background: "var(--color-green-tint)", color: "var(--color-green-text)" }}>
+              ⬆ Saving…
+            </span>
+          )}
           <button onClick={logout} className="text-xs font-semibold px-3 py-2 rounded-xl border shrink-0" style={{ borderColor: "var(--color-line)" }}>
             Logout
           </button>

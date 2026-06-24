@@ -1,32 +1,55 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { loadCMS, resetCMS, saveCMS, defaults, type CMSContent } from "../lib/cms";
 
 type CMSContextType = {
   cms: CMSContent;
   updateCMS: (updater: (prev: CMSContent) => CMSContent) => void;
   resetToDefaults: () => Promise<void>;
+  saving: boolean;
 };
 
 const CMSContext = createContext<CMSContextType | null>(null);
 
 export function CMSProvider({ children }: { children: ReactNode }) {
   const [cms, setCMS] = useState<CMSContent | null>(null);
+  const [saving, setSaving] = useState(false);
+  const initialLoad = useRef(true);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Load from Supabase on mount
   useEffect(() => {
     loadCMS().then(setCMS);
   }, []);
 
+  // Save to Supabase 600 ms after the last change (debounced)
+  // Skip the very first render after initial load
+  useEffect(() => {
+    if (!cms) return;
+    if (initialLoad.current) {
+      initialLoad.current = false;
+      return;
+    }
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setSaving(true);
+    saveTimer.current = setTimeout(async () => {
+      await saveCMS(cms);
+      setSaving(false);
+    }, 600);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cms]);
+
+  // Pure state update — no side effects inside setState
   const updateCMS = useCallback((updater: (prev: CMSContent) => CMSContent) => {
-    setCMS((prev) => {
-      const next = updater(prev ?? defaults());
-      saveCMS(next);
-      return next;
-    });
+    setCMS((prev) => updater(prev ?? defaults()));
   }, []);
 
   const resetToDefaults = useCallback(async () => {
     await resetCMS();
     const fresh = await loadCMS();
+    initialLoad.current = true; // skip save-on-change for the reset load
     setCMS(fresh);
   }, []);
 
@@ -34,8 +57,8 @@ export function CMSProvider({ children }: { children: ReactNode }) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center gap-4 bg-white z-[9999]">
         <div
-          className="w-10 h-10 rounded-full border-4 border-t-transparent animate-spin"
-          style={{ borderColor: "#FF9933", borderTopColor: "transparent" }}
+          className="w-10 h-10 rounded-full border-4 animate-spin"
+          style={{ borderColor: "#FF9933 #FF9933 #FF9933 transparent" }}
         />
         <p className="text-sm font-semibold" style={{ color: "#FF9933" }}>Loading content…</p>
       </div>
@@ -43,7 +66,7 @@ export function CMSProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <CMSContext.Provider value={{ cms, updateCMS, resetToDefaults }}>
+    <CMSContext.Provider value={{ cms, updateCMS, resetToDefaults, saving }}>
       {children}
     </CMSContext.Provider>
   );
