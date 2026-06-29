@@ -44,10 +44,10 @@ export default function BanjaraMap() {
               <rect width="1000" height="640" fill="url(#land)" />
 
               {/* KBR park / green lung */}
-              <ellipse cx="640" cy="130" rx="180" ry="90" fill="#138808" opacity="0.16" />
-              <text x="640" y="135" textAnchor="middle" fill="#0f7406" fontSize="15" fontWeight="700" opacity="0.85" fontFamily="Sora">KBR PARK</text>
-              <ellipse cx="230" cy="540" rx="120" ry="60" fill="#138808" opacity="0.12" />
-              <text x="230" y="545" textAnchor="middle" fill="#0f7406" fontSize="12" fontWeight="600" opacity="0.8" fontFamily="Sora">Banjara Lake</text>
+              <ellipse cx="640" cy="130" rx="180" ry="90" fill="#0d530e" opacity="0.16" />
+              <text x="640" y="135" textAnchor="middle" fill="#0a450b" fontSize="15" fontWeight="700" opacity="0.85" fontFamily="Sora">KBR PARK</text>
+              <ellipse cx="230" cy="540" rx="120" ry="60" fill="#0d530e" opacity="0.12" />
+              <text x="230" y="545" textAnchor="middle" fill="#0a450b" fontSize="12" fontWeight="600" opacity="0.8" fontFamily="Sora">Banjara Lake</text>
 
               {/* abstract road network */}
               <g stroke="#e2c9ad" strokeWidth="4" fill="none" opacity="0.9">
@@ -74,7 +74,7 @@ export default function BanjaraMap() {
                     <circle cx={p.x} cy={p.y} r={r} fill="#ff9933" opacity={isActive ? 0.3 : 0.16} filter="url(#soft)">
                       <animate attributeName="r" values={`${r};${r + 8};${r}`} dur="2.8s" repeatCount="indefinite" />
                     </circle>
-                    <circle cx={p.x} cy={p.y} r={r} fill={isActive ? "#ff9933" : "#138808"} stroke="#ffffff" strokeWidth="2.5" />
+                    <circle cx={p.x} cy={p.y} r={r} fill={isActive ? "#ff9933" : "#0d530e"} stroke="#ffffff" strokeWidth="2.5" />
                     <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize={r > 16 ? 13 : 10} fontWeight="800" fill="#ffffff" fontFamily="Sora">{w.count}</text>
                     <text x={p.x} y={p.y + r + 16} textAnchor="middle" fontSize="12" fontWeight="700" fill={isActive ? "#d4660a" : "#5c5c5c"} fontFamily="Plus Jakarta Sans">{w.name}</text>
                   </g>

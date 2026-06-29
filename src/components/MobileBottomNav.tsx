@@ -54,7 +54,7 @@ export default function MobileBottomNav() {
           target="_blank"
           rel="noreferrer"
           className="flex flex-col items-center justify-center gap-0.5"
-          style={{ color: "#25D366" }}
+          style={{ color: "#0d530e" }}
         >
           <span className="grid place-items-center w-10 h-7 rounded-full">
             <WaIcon />

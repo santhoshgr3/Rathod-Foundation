@@ -10,9 +10,9 @@ export default function WhatsAppFAB() {
       aria-label="Chat on WhatsApp"
       className="fixed right-4 z-40 flex items-center justify-center w-14 h-14 rounded-full transition-transform hover:scale-110 active:scale-95 bottom-[4.75rem] lg:bottom-6"
       style={{
-        background: "#25D366",
+        background: "#0d530e",
         color: "#fff",
-        boxShadow: "0 4px 24px rgba(37,211,102,0.45), 0 2px 8px rgba(0,0,0,0.12)",
+        boxShadow: "0 4px 24px rgba(13,83,14,0.45), 0 2px 8px rgba(0,0,0,0.12)",
       }}
     >
       <svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">

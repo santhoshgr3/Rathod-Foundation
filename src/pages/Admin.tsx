@@ -8,6 +8,7 @@ import { listCases, listVolunteers, updateCaseStage, STAGES, type Case as CaseT,
 function LoginGate({ password, onLogin }: { password: string; onLogin: () => void }) {
   const [pw, setPw] = useState("");
   const [err, setErr] = useState(false);
+  const [show, setShow] = useState(false);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,31 +17,109 @@ function LoginGate({ password, onLogin }: { password: string; onLogin: () => voi
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white px-4">
-      <div className="w-full max-w-sm">
-        <div className="flex justify-center mb-8">
-          <div className="grid place-items-center w-14 h-14 rounded-2xl font-display font-extrabold text-xl text-white" style={{ background: "var(--color-saffron)" }}>RF</div>
+    <div className="min-h-screen flex" style={{ background: "#f8f7f5" }}>
+      {/* Left panel — branding */}
+      <div className="hidden lg:flex flex-col justify-between w-[420px] shrink-0 p-10 text-white relative overflow-hidden" style={{ background: "linear-gradient(145deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%)" }}>
+        {/* Decorative circles */}
+        <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-10" style={{ background: "var(--color-saffron)" }} />
+        <div className="absolute -bottom-32 -left-16 w-96 h-96 rounded-full opacity-10" style={{ background: "var(--color-green)" }} />
+        {/* Tricolor stripe */}
+        <div className="absolute top-0 left-0 right-0 h-1 flex">
+          <div className="flex-1" style={{ background: "var(--color-saffron)" }} />
+          <div className="flex-1 bg-white" />
+          <div className="flex-1" style={{ background: "var(--color-green)" }} />
         </div>
-        <h1 className="font-display font-extrabold text-2xl text-center mb-1" style={{ color: "var(--color-ink)" }}>Admin Panel</h1>
-        <p className="text-sm text-center mb-8" style={{ color: "var(--color-muted)" }}>Rathod Foundation — content management</p>
-        <form onSubmit={submit} className="space-y-4">
-          <input
-            type="password"
-            value={pw}
-            onChange={(e) => { setPw(e.target.value); setErr(false); }}
-            placeholder="Enter admin password"
-            className="w-full border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2"
-            style={{ borderColor: err ? "#d92020" : "var(--color-line)" }}
-            autoFocus
-          />
-          {err && <p className="text-xs text-red-600 font-medium">Incorrect password. Try again.</p>}
-          <button type="submit" className="w-full rounded-xl py-3 font-semibold text-sm text-white" style={{ background: "var(--color-saffron)" }}>
-            Sign in →
-          </button>
-        </form>
-        <p className="text-xs text-center mt-6" style={{ color: "var(--color-muted)" }}>
-          <Link to="/" className="underline">← Back to website</Link>
-        </p>
+
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-12">
+            <div className="grid place-items-center w-11 h-11 rounded-2xl font-display font-extrabold text-lg text-white" style={{ background: "var(--color-saffron)" }}>RF</div>
+            <div>
+              <div className="font-display font-bold text-base leading-tight">Rathod Foundation</div>
+              <div className="text-xs opacity-60">Banjara Hills, Hyderabad</div>
+            </div>
+          </div>
+          <h2 className="font-display font-extrabold text-3xl leading-tight mb-4">Content<br />Management<br />System</h2>
+          <p className="text-sm opacity-70 leading-relaxed max-w-xs">Manage all website content, gallery photos, work cases, ward data, and incoming civic requests from one place.</p>
+        </div>
+
+        <div className="relative z-10 space-y-3">
+          {[
+            { icon: "📊", text: "Live case dashboard" },
+            { icon: "🖼️", text: "Gallery & timeline editor" },
+            { icon: "🗺️", text: "Ward impact data" },
+            { icon: "⚙️", text: "Full site content control" },
+          ].map((f) => (
+            <div key={f.text} className="flex items-center gap-3 text-sm opacity-80">
+              <span className="text-base">{f.icon}</span>
+              {f.text}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Right panel — login form */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+        {/* Mobile logo */}
+        <div className="lg:hidden flex items-center gap-3 mb-10">
+          <div className="grid place-items-center w-12 h-12 rounded-2xl font-display font-extrabold text-lg text-white" style={{ background: "var(--color-saffron)" }}>RF</div>
+          <div>
+            <div className="font-display font-bold text-base leading-tight" style={{ color: "var(--color-ink)" }}>Rathod Foundation</div>
+            <div className="text-xs" style={{ color: "var(--color-muted)" }}>Admin Panel</div>
+          </div>
+        </div>
+
+        <div className="w-full max-w-sm">
+          <div className="mb-8">
+            <h1 className="font-display font-extrabold text-2xl mb-1" style={{ color: "var(--color-ink)" }}>Welcome back</h1>
+            <p className="text-sm" style={{ color: "var(--color-muted)" }}>Sign in to manage your website content</p>
+          </div>
+
+          <form onSubmit={submit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--color-ink)" }}>Admin Password</label>
+              <div className="relative">
+                <input
+                  type={show ? "text" : "password"}
+                  value={pw}
+                  onChange={(e) => { setPw(e.target.value); setErr(false); }}
+                  placeholder="Enter your password"
+                  className="w-full rounded-xl px-4 py-3.5 text-sm outline-none pr-12 transition-all"
+                  style={{
+                    border: `2px solid ${err ? "#ef4444" : pw ? "var(--color-saffron)" : "var(--color-line)"}`,
+                    background: "#fff",
+                    boxShadow: err ? "0 0 0 3px rgba(239,68,68,0.1)" : pw ? "0 0 0 3px rgba(255,153,51,0.12)" : "none",
+                  }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShow(!show)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold px-2 py-1 rounded-lg"
+                  style={{ color: "var(--color-muted)" }}
+                >
+                  {show ? "Hide" : "Show"}
+                </button>
+              </div>
+              {err && (
+                <p className="mt-2 text-xs font-medium flex items-center gap-1.5 text-red-600">
+                  <span>⚠️</span> Incorrect password — please try again
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="w-full rounded-xl py-3.5 font-bold text-sm text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: "var(--color-saffron)", boxShadow: "0 4px 14px rgba(255,153,51,0.35)" }}
+            >
+              Sign in to Admin Panel →
+            </button>
+          </form>
+
+          <p className="text-xs text-center mt-8" style={{ color: "var(--color-muted)" }}>
+            <Link to="/" className="font-medium hover:underline" style={{ color: "var(--color-saffron-text)" }}>← Back to website</Link>
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -91,39 +170,168 @@ function SaveErrorBanner() {
 function OverviewTab() {
   const [cases, setCases] = useState<CaseT[]>([]);
   const [volunteers, setVolunteers] = useState<VolunteerT[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { cms } = useCMS();
+
   useEffect(() => {
     let alive = true;
     Promise.all([listCases(), listVolunteers()]).then(([c, v]) => {
       if (!alive) return;
       setCases(c);
       setVolunteers(v);
+      setLoading(false);
     });
     return () => { alive = false; };
   }, []);
-  const resolved = cases.filter((c) => c.stageIndex >= 4).length;
 
-  const cards = [
-    { label: "Total cases", value: cases.length, color: "saffron" },
-    { label: "Resolved", value: resolved, color: "green" },
-    { label: "Volunteers", value: volunteers.length, color: "saffron" },
-    { label: "Pending", value: cases.filter((c) => c.stageIndex < 4).length, color: "green" },
-  ];
+  const resolved = cases.filter((c) => c.stageIndex >= 4).length;
+  const pending = cases.filter((c) => c.stageIndex < 4).length;
+  const resolutionRate = cases.length ? Math.round((resolved / cases.length) * 100) : 0;
+  const recent = cases.slice(0, 5);
+
+  const STAGE_COLORS = ["#f97316","#eab308","#3b82f6","#8b5cf6","#22c55e","#10b981"];
 
   return (
-    <div>
-      <h2 className="text-xl font-display font-bold mb-6">Overview</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        {cards.map((c) => (
-          <div key={c.label} className="rounded-2xl p-5 card">
-            <div className="text-3xl font-display font-extrabold" style={{ color: `var(--color-${c.color}-text)` }}>{c.value}</div>
-            <div className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>{c.label}</div>
+    <div className="space-y-8">
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-display font-extrabold" style={{ color: "var(--color-ink)" }}>Dashboard Overview</h2>
+        <p className="text-sm mt-1" style={{ color: "var(--color-muted)" }}>
+          Welcome back — {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+        </p>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: "Total cases", value: loading ? "—" : cases.length, icon: "📬", color: "var(--color-saffron)", bg: "var(--color-saffron-tint)", text: "var(--color-saffron-text)" },
+          { label: "Resolved", value: loading ? "—" : resolved, icon: "✅", color: "var(--color-green)", bg: "var(--color-green-tint)", text: "var(--color-green-text)" },
+          { label: "Pending", value: loading ? "—" : pending, icon: "⏳", color: "#f59e0b", bg: "#fffbeb", text: "#92400e" },
+          { label: "Volunteers", value: loading ? "—" : volunteers.length, icon: "🙋", color: "#6366f1", bg: "#eef2ff", text: "#3730a3" },
+        ].map((c) => (
+          <div key={c.label} className="rounded-2xl p-5 bg-white border" style={{ borderColor: "var(--color-line)" }}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="grid place-items-center w-10 h-10 rounded-xl text-lg" style={{ background: c.bg }}>{c.icon}</div>
+            </div>
+            <div className="text-3xl font-display font-extrabold leading-none" style={{ color: c.text }}>{c.value}</div>
+            <div className="text-xs font-semibold mt-1.5" style={{ color: "var(--color-muted)" }}>{c.label}</div>
           </div>
         ))}
       </div>
-      <p className="text-sm" style={{ color: "var(--color-muted)" }}>
-        Use the menu on the left to edit site content, manage gallery photos, update the timeline, review submissions and more.
-        <br />Changes save automatically — they go live on the website immediately.
-      </p>
+
+      {/* Resolution rate + recent activity */}
+      <div className="grid lg:grid-cols-[1fr_1.2fr] gap-6">
+
+        {/* Resolution rate card */}
+        <div className="rounded-2xl p-6 bg-white border space-y-5" style={{ borderColor: "var(--color-line)" }}>
+          <h3 className="font-display font-bold text-base" style={{ color: "var(--color-ink)" }}>Resolution Rate</h3>
+          <div className="flex items-end gap-3">
+            <div className="text-5xl font-display font-extrabold" style={{ color: resolutionRate >= 70 ? "var(--color-green-text)" : "var(--color-saffron-text)" }}>{resolutionRate}%</div>
+            <div className="text-sm mb-1.5" style={{ color: "var(--color-muted)" }}>cases resolved</div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--color-muted)" }}>
+              <span>0%</span><span>100%</span>
+            </div>
+            <div className="h-3 rounded-full overflow-hidden" style={{ background: "var(--color-line)" }}>
+              <div
+                className="h-full rounded-full transition-all duration-1000"
+                style={{ width: `${resolutionRate}%`, background: resolutionRate >= 70 ? "var(--color-green)" : "var(--color-saffron)" }}
+              />
+            </div>
+          </div>
+          {/* Stage breakdown */}
+          {!loading && cases.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--color-muted)" }}>By stage</p>
+              {STAGES.map((s, i) => {
+                const count = cases.filter((c) => c.stageIndex === i).length;
+                const pct = cases.length ? Math.round((count / cases.length) * 100) : 0;
+                return (
+                  <div key={s.key} className="flex items-center gap-2 text-xs">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: STAGE_COLORS[i] ?? "#999" }} />
+                    <span className="flex-1 truncate" style={{ color: "var(--color-muted)" }}>{s.en}</span>
+                    <span className="font-bold w-6 text-right" style={{ color: "var(--color-ink)" }}>{count}</span>
+                    <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--color-line)" }}>
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: STAGE_COLORS[i] ?? "#999" }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Recent cases */}
+        <div className="rounded-2xl p-6 bg-white border" style={{ borderColor: "var(--color-line)" }}>
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="font-display font-bold text-base" style={{ color: "var(--color-ink)" }}>Recent Submissions</h3>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: "var(--color-saffron-tint)", color: "var(--color-saffron-text)" }}>Last 5</span>
+          </div>
+          {loading ? (
+            <div className="space-y-3">{[...Array(4)].map((_, i) => (
+              <div key={i} className="h-10 rounded-xl animate-pulse" style={{ background: "var(--color-line)" }} />
+            ))}</div>
+          ) : recent.length === 0 ? (
+            <p className="text-sm text-center py-8" style={{ color: "var(--color-muted)" }}>No submissions yet</p>
+          ) : (
+            <div className="space-y-2">
+              {recent.map((c) => (
+                <div key={c.id} className="flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-gray-50">
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{ background: c.stageIndex >= 4 ? "var(--color-green)" : "var(--color-saffron)" }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold truncate" style={{ color: "var(--color-ink)" }}>{c.name || "Anonymous"}</div>
+                    <div className="text-xs truncate" style={{ color: "var(--color-muted)" }}>{c.category} · {c.location}</div>
+                  </div>
+                  <span className="font-mono text-xs px-2 py-0.5 rounded-lg shrink-0" style={{ background: "var(--color-saffron-tint)", color: "var(--color-saffron-text)" }}>#{c.id}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Quick links */}
+      <div>
+        <h3 className="font-display font-bold text-sm mb-4" style={{ color: "var(--color-muted)" }}>QUICK ACTIONS</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[
+            { icon: "🏠", label: "Edit Home Page", tab: "home" },
+            { icon: "🖼️", label: "Manage Gallery", tab: "gallery" },
+            { icon: "🔨", label: "Work Cases", tab: "works" },
+            { icon: "📬", label: "View Submissions", tab: "submissions" },
+            { icon: "🗺️", label: "Ward Data", tab: "wards" },
+            { icon: "⚙️", label: "Site Settings", tab: "site" },
+          ].map((q) => (
+            <button
+              key={q.tab}
+              onClick={() => {
+                const e = new CustomEvent("rf-admin-tab", { detail: q.tab });
+                window.dispatchEvent(e);
+              }}
+              className="flex flex-col items-center gap-2 rounded-2xl p-4 text-center transition-all hover:scale-[1.03] active:scale-95 bg-white border"
+              style={{ borderColor: "var(--color-line)" }}
+            >
+              <span className="text-2xl">{q.icon}</span>
+              <span className="text-xs font-semibold leading-tight" style={{ color: "var(--color-ink)" }}>{q.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Site stats from CMS */}
+      <div className="rounded-2xl p-6 bg-white border" style={{ borderColor: "var(--color-line)" }}>
+        <h3 className="font-display font-bold text-base mb-4" style={{ color: "var(--color-ink)" }}>Public Site Stats (CMS)</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {cms.stats.map((s, i) => (
+            <div key={i} className="text-center p-3 rounded-xl" style={{ background: "var(--color-saffron-tint)" }}>
+              <div className="font-display font-extrabold text-2xl" style={{ color: "var(--color-saffron-text)" }}>{s.value}{s.suffix}</div>
+              <div className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs mt-3" style={{ color: "var(--color-muted)" }}>Edit these numbers in Stats & Ticker tab.</p>
+      </div>
     </div>
   );
 }
@@ -1452,37 +1660,52 @@ type TabKey = "overview" | "submissions" | "volunteers" | "home" | "allpages" | 
 
 // ── Sidebar nav ───────────────────────────────────────────────────────────────
 function SidebarNav({ tab, setTab, onClose }: { tab: TabKey; setTab: (t: TabKey) => void; onClose?: () => void }) {
+  const { saving } = useCMS();
   return (
-    <nav className="flex flex-col h-full">
+    <nav className="flex flex-col h-full bg-white">
       {/* Logo */}
-      <div className="px-5 py-5 border-b flex items-center gap-3" style={{ borderColor: "var(--color-line)" }}>
-        <div className="grid place-items-center w-9 h-9 rounded-xl font-display font-extrabold text-sm text-white shrink-0" style={{ background: "var(--color-saffron)" }}>RF</div>
-        <div>
-          <div className="font-display font-bold text-sm leading-tight">Admin Panel</div>
-          <div className="text-xs" style={{ color: "var(--color-muted)" }}>Rathod Foundation</div>
+      <div className="px-5 pt-6 pb-5 border-b" style={{ borderColor: "var(--color-line)" }}>
+        <div className="flex items-center gap-3">
+          <div className="grid place-items-center w-10 h-10 rounded-xl font-display font-extrabold text-base text-white shrink-0" style={{ background: "var(--color-saffron)" }}>RF</div>
+          <div>
+            <div className="font-display font-bold text-sm leading-tight" style={{ color: "var(--color-ink)" }}>Rathod Foundation</div>
+            <div className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>Admin Panel</div>
+          </div>
+        </div>
+        {/* Live save indicator under logo */}
+        <div className={`mt-3 flex items-center gap-2 text-xs font-semibold rounded-lg px-3 py-2 transition-all ${saving ? "animate-pulse" : ""}`}
+          style={{ background: saving ? "var(--color-saffron-tint)" : "var(--color-green-tint)", color: saving ? "var(--color-saffron-text)" : "var(--color-green-text)" }}>
+          {saving ? (
+            <><svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" strokeOpacity=".3"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Saving changes…</>
+          ) : (
+            <><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> All changes saved</>
+          )}
         </div>
       </div>
 
       {/* Nav groups */}
-      <div className="flex-1 overflow-y-auto py-3 px-3 space-y-5">
+      <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
         {NAV_GROUPS.map((g) => (
           <div key={g.group}>
-            <p className="text-[10px] font-bold uppercase tracking-widest px-2 mb-1.5" style={{ color: "var(--color-muted)" }}>{g.group}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest px-3 mb-2" style={{ color: "var(--color-muted)" }}>{g.group}</p>
             <div className="space-y-0.5">
               {g.items.map((item) => {
                 const active = tab === item.key;
+                const isDanger = g.group === "Danger zone";
                 return (
                   <button
                     key={item.key}
                     onClick={() => { setTab(item.key as TabKey); onClose?.(); }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-left transition-all"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-left transition-all relative"
                     style={active
-                      ? { background: "var(--color-saffron-tint)", color: "var(--color-saffron-text)" }
-                      : { color: "var(--color-ink)" }}
+                      ? { background: isDanger ? "#fef2f2" : "var(--color-saffron-tint)", color: isDanger ? "#dc2626" : "var(--color-saffron-text)" }
+                      : { color: isDanger ? "#dc2626" : "var(--color-ink)" }}
                   >
-                    <span className="text-base w-6 text-center shrink-0">{item.icon}</span>
-                    {item.label}
-                    {active && <span className="ml-auto w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "var(--color-saffron)" }} />}
+                    {active && (
+                      <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full" style={{ background: isDanger ? "#dc2626" : "var(--color-saffron)" }} />
+                    )}
+                    <span className="text-base w-5 text-center shrink-0">{item.icon}</span>
+                    <span className="truncate">{item.label}</span>
                   </button>
                 );
               })}
@@ -1490,16 +1713,34 @@ function SidebarNav({ tab, setTab, onClose }: { tab: TabKey; setTab: (t: TabKey)
           </div>
         ))}
       </div>
+
+      {/* Footer */}
+      <div className="px-3 py-4 border-t space-y-1" style={{ borderColor: "var(--color-line)" }}>
+        <Link
+          to="/"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors hover:bg-gray-50"
+          style={{ color: "var(--color-muted)" }}
+        >
+          <span className="text-base w-5 text-center">🌐</span> View website
+        </Link>
+      </div>
     </nav>
   );
 }
 
 // ── Main Admin page ───────────────────────────────────────────────────────────
 export default function Admin() {
-  const { cms, saving } = useCMS();
+  const { cms } = useCMS();
   const [authed, setAuthed] = useState(() => sessionStorage.getItem("rf_admin") === "1");
   const [tab, setTab] = useState<TabKey>("overview");
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Allow OverviewTab quick-action buttons to navigate tabs
+  useEffect(() => {
+    const handler = (e: Event) => setTab((e as CustomEvent).detail as TabKey);
+    window.addEventListener("rf-admin-tab", handler);
+    return () => window.removeEventListener("rf-admin-tab", handler);
+  }, []);
 
   if (!authed) {
     return (
@@ -1513,31 +1754,22 @@ export default function Admin() {
   const logout = () => { sessionStorage.removeItem("rf_admin"); setAuthed(false); };
 
   const allItems = NAV_GROUPS.flatMap((g) => [...g.items]) as { key: string; label: string; icon: string }[];
-  const currentLabel = allItems.find((i) => i.key === tab);
+  const currentItem = allItems.find((i) => i.key === tab);
+  const currentGroup = NAV_GROUPS.find((g) => g.items.some((i) => i.key === tab))?.group ?? "";
 
   return (
     <div className="min-h-screen flex" style={{ background: "#f4f5f7" }}>
       <SaveErrorBanner />
 
-      {/* ── Desktop sidebar ─────────────────────────────────────────── */}
-      <aside className="hidden md:flex flex-col w-56 shrink-0 bg-white border-r sticky top-0 h-screen overflow-hidden" style={{ borderColor: "var(--color-line)" }}>
+      {/* ── Desktop sidebar (wider: 260px) ──────────────────────────── */}
+      <aside className="hidden md:flex flex-col w-64 shrink-0 bg-white border-r sticky top-0 h-screen overflow-hidden" style={{ borderColor: "var(--color-line)" }}>
         <SidebarNav tab={tab} setTab={setTab} />
-        <div className="px-4 py-4 border-t space-y-2" style={{ borderColor: "var(--color-line)" }}>
-          {saving ? (
-            <div className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl animate-pulse" style={{ background: "var(--color-green-tint)", color: "var(--color-green-text)" }}>
-              <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" strokeOpacity=".25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-              Saving to Supabase…
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-xl" style={{ color: "var(--color-green-text)", background: "var(--color-green-tint)" }}>
-              <span>✓</span> All changes saved to DB
-            </div>
-          )}
-          <Link to="/" className="flex items-center gap-2 text-xs font-medium rounded-xl px-3 py-2.5 transition-colors hover:bg-gray-50" style={{ color: "var(--color-muted)" }}>
-            ← Back to website
-          </Link>
-          <button onClick={logout} className="w-full flex items-center gap-2 text-xs font-semibold rounded-xl px-3 py-2.5 transition-colors hover:bg-red-50 text-red-600">
-            🚪 Logout
+        <div className="px-3 pb-4 border-t" style={{ borderColor: "var(--color-line)" }}>
+          <button
+            onClick={logout}
+            className="mt-3 w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors hover:bg-red-50 text-red-600"
+          >
+            <span className="text-base w-5 text-center">🚪</span> Logout
           </button>
         </div>
       </aside>
@@ -1545,56 +1777,58 @@ export default function Admin() {
       {/* ── Mobile drawer overlay ────────────────────────────────────── */}
       {drawerOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} />
-          {/* Drawer */}
-          <div className="relative w-72 max-w-[85vw] bg-white h-full flex flex-col shadow-2xl">
-            <SidebarNav tab={tab} setTab={setTab} onClose={() => setDrawerOpen(false)} />
-            <div className="px-4 py-4 border-t space-y-2" style={{ borderColor: "var(--color-line)" }}>
-              <Link to="/" onClick={() => setDrawerOpen(false)} className="flex items-center gap-2 text-xs font-medium rounded-xl px-3 py-2.5 hover:bg-gray-50" style={{ color: "var(--color-muted)" }}>
-                ← Back to website
-              </Link>
-              <button onClick={logout} className="w-full flex items-center gap-2 text-xs font-semibold rounded-xl px-3 py-2.5 hover:bg-red-50 text-red-600">
-                🚪 Logout
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
+          <div className="relative w-72 max-w-[85vw] bg-white h-full flex flex-col shadow-2xl overflow-hidden">
+            <SidebarNav tab={tab} setTab={(t) => { setTab(t); setDrawerOpen(false); }} />
+            <div className="px-3 pb-4 border-t" style={{ borderColor: "var(--color-line)" }}>
+              <button onClick={() => { logout(); setDrawerOpen(false); }} className="mt-3 w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold hover:bg-red-50 text-red-600">
+                <span className="text-base w-5 text-center">🚪</span> Logout
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Main content ─────────────────────────────────────────────── */}
+      {/* ── Main content area ────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* Mobile top bar */}
-        <div className="md:hidden sticky top-0 z-40 bg-white border-b flex items-center gap-3 px-4 h-14" style={{ borderColor: "var(--color-line)" }}>
+        {/* Top header bar */}
+        <header className="sticky top-0 z-40 bg-white border-b flex items-center gap-3 px-4 sm:px-6 h-14" style={{ borderColor: "var(--color-line)" }}>
+          {/* Mobile hamburger */}
           <button
             onClick={() => setDrawerOpen(true)}
-            className="grid place-items-center w-10 h-10 rounded-xl shrink-0"
-            style={{ background: "var(--color-saffron-tint)", color: "var(--color-saffron-text)" }}
+            className="md:hidden grid place-items-center w-9 h-9 rounded-xl shrink-0 transition-colors hover:bg-gray-100"
+            style={{ color: "var(--color-ink)" }}
             aria-label="Open menu"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <div className="flex-1 min-w-0">
-            <div className="font-display font-bold text-sm truncate">
-              {currentLabel?.icon} {currentLabel?.label}
-            </div>
-            <div className="text-xs" style={{ color: "var(--color-muted)" }}>Admin Panel</div>
-          </div>
-          {saving && (
-            <span className="text-[10px] font-semibold px-2 py-1 rounded-lg animate-pulse shrink-0" style={{ background: "var(--color-green-tint)", color: "var(--color-green-text)" }}>
-              ⬆ Saving…
+
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="hidden sm:block text-sm font-medium" style={{ color: "var(--color-muted)" }}>{currentGroup}</span>
+            <span className="hidden sm:block text-sm" style={{ color: "var(--color-line)" }}>/</span>
+            <span className="text-sm font-bold truncate" style={{ color: "var(--color-ink)" }}>
+              {currentItem?.icon} {currentItem?.label}
             </span>
-          )}
-          <button onClick={logout} className="text-xs font-semibold px-3 py-2 rounded-xl border shrink-0" style={{ borderColor: "var(--color-line)" }}>
-            Logout
-          </button>
-        </div>
+          </div>
+
+          {/* View site button */}
+          <Link
+            to="/"
+            target="_blank"
+            className="hidden sm:flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl border transition-colors hover:bg-gray-50"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-muted)" }}
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            View site
+          </Link>
+        </header>
 
         {/* Page content */}
-        <main className="flex-1 px-4 sm:px-6 py-6 sm:py-8 max-w-4xl w-full mx-auto">
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-5xl w-full mx-auto">
           {tab === "overview"    && <OverviewTab />}
           {tab === "home"        && <HomePageTab />}
           {tab === "allpages"    && <AllPagesTab />}
