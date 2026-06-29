@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useCMS } from "../contexts/CMSContext";
-import { uid, type CMSGalleryPhoto, type CMSTimelineEntry, type CMSWard, type CMSStat, type CMSWorkCase, type CMSChairman, type CMSStep, type CMSPageHeader, type CMSHome } from "../lib/cms";
+import { uid, type CMSGalleryPhoto, type CMSTimelineEntry, type CMSWard, type CMSStat, type CMSWorkCase, type CMSChairman, type CMSStep, type CMSPageHeader, type CMSHome, type CMSHelpCategory, type CMSCampaign } from "../lib/cms";
 import { listCases, listVolunteers, updateCaseStage, STAGES, type Case as CaseT, type Volunteer as VolunteerT } from "../lib/store";
 
 // ── Auth gate ─────────────────────────────────────────────────────────────────
@@ -76,6 +76,17 @@ function SaveBanner({ saved }: { saved: boolean }) {
   );
 }
 
+function SaveErrorBanner() {
+  const { saveError, clearSaveError } = useCMS();
+  if (!saveError) return null;
+  return (
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl px-5 py-3 text-sm font-semibold text-white shadow-xl" style={{ background: "#d92020", maxWidth: "90vw" }}>
+      ⚠️ {saveError}
+      <button onClick={clearSaveError} className="ml-2 text-white/70 hover:text-white text-lg leading-none">×</button>
+    </div>
+  );
+}
+
 // ── Tab: Overview ─────────────────────────────────────────────────────────────
 function OverviewTab() {
   const [cases, setCases] = useState<CaseT[]>([]);
@@ -133,6 +144,11 @@ function SiteInfoTab() {
     whatsapp: cms.leader.whatsapp,
     phone0: cms.leader.phones[0] ?? "",
     phone1: cms.leader.phones[1] ?? "",
+    siteUrl: cms.leader.siteUrl ?? "",
+    facebook: cms.leader.facebook ?? "",
+    instagram: cms.leader.instagram ?? "",
+    youtube: cms.leader.youtube ?? "",
+    twitter: cms.leader.twitter ?? "",
     bioIntro: cms.bio.intro,
     newPassword: "",
   }));
@@ -154,6 +170,11 @@ function SiteInfoTab() {
         email: local.email,
         whatsapp: local.whatsapp,
         phones: [local.phone0, local.phone1].filter(Boolean),
+        siteUrl: local.siteUrl,
+        facebook: local.facebook,
+        instagram: local.instagram,
+        youtube: local.youtube,
+        twitter: local.twitter,
       },
       bio: { ...prev.bio, intro: local.bioIntro },
       adminPassword: local.newPassword || prev.adminPassword,
@@ -189,6 +210,21 @@ function SiteInfoTab() {
         <div className="grid sm:grid-cols-2 gap-4">
           <Field label="Email"><input className={inp} value={local.email} onChange={set("email")} /></Field>
           <Field label="WhatsApp number (digits only)"><input className={inp} value={local.whatsapp} onChange={set("whatsapp")} /></Field>
+        </div>
+
+        <div className="border-t pt-4" style={{ borderColor: "var(--color-line)" }}>
+          <h3 className="font-semibold mb-3 text-sm">Website & Social Media</h3>
+          <div className="space-y-3">
+            <Field label="Website URL (used in QR code)">
+              <input className={inp} value={local.siteUrl} onChange={set("siteUrl")} placeholder="https://rathodfoundation.in" />
+            </Field>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Field label="Facebook URL"><input className={inp} value={local.facebook} onChange={set("facebook")} placeholder="https://facebook.com/…" /></Field>
+              <Field label="Instagram URL"><input className={inp} value={local.instagram} onChange={set("instagram")} placeholder="https://instagram.com/…" /></Field>
+              <Field label="YouTube URL"><input className={inp} value={local.youtube} onChange={set("youtube")} placeholder="https://youtube.com/@…" /></Field>
+              <Field label="Twitter/X URL"><input className={inp} value={local.twitter} onChange={set("twitter")} placeholder="https://x.com/…" /></Field>
+            </div>
+          </div>
         </div>
 
         <div className="border-t pt-4" style={{ borderColor: "var(--color-line)" }}>
@@ -1261,6 +1297,116 @@ function AllPagesTab() {
   );
 }
 
+// ── Tab: Help Categories ──────────────────────────────────────────────────────
+function HelpCategoriesTab() {
+  const { cms, updateCMS } = useCMS();
+  const [saved, setSaved] = useState(false);
+  const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
+
+  const ICON_OPTIONS = ["medical", "book", "doc", "rupee", "card", "bolt", "home", "elder", "hand", "pin", "users", "megaphone"];
+
+  const update = (i: number, field: keyof CMSHelpCategory, value: string) =>
+    updateCMS((p) => {
+      const cats = [...p.helpCategories];
+      cats[i] = { ...cats[i], [field]: value };
+      return { ...p, helpCategories: cats };
+    });
+
+  const remove = (i: number) => { updateCMS((p) => ({ ...p, helpCategories: p.helpCategories.filter((_, idx) => idx !== i) })); flash(); };
+
+  const add = () => {
+    updateCMS((p) => ({
+      ...p,
+      helpCategories: [...p.helpCategories, { id: uid(), icon: "hand", en: "New category", te: "", hi: "", descEn: "Description here." }],
+    }));
+    flash();
+  };
+
+  return (
+    <div>
+      <SaveBanner saved={saved} />
+      <h2 className="text-xl font-display font-bold mb-1">Help Categories</h2>
+      <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>
+        These appear on the Seek Help page as selectable cards. Each category needs English, Telugu, and Hindi labels.
+      </p>
+      <div className="space-y-4 mb-6">
+        {cms.helpCategories.map((cat, i) => (
+          <div key={cat.id} className="rounded-xl border p-4 space-y-3" style={{ borderColor: "var(--color-line)", borderLeft: "4px solid var(--color-saffron)" }}>
+            <div className="flex items-center gap-2 justify-between">
+              <div className="flex items-center gap-2 flex-wrap flex-1">
+                <Field label="Icon">
+                  <select className={inp + " w-32"} value={cat.icon} onChange={(e) => update(i, "icon", e.target.value)}>
+                    {ICON_OPTIONS.map((ic) => <option key={ic} value={ic}>{ic}</option>)}
+                  </select>
+                </Field>
+                <div className="flex-1"><Field label="English label"><input className={inp} value={cat.en} onChange={(e) => update(i, "en", e.target.value)} /></Field></div>
+              </div>
+              <button onClick={() => remove(i)} className={btn("red") + " mt-5 shrink-0"}>Remove</button>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Field label="Telugu (తెలుగు)"><input className={inp} value={cat.te} onChange={(e) => update(i, "te", e.target.value)} placeholder="Telugu translation" /></Field>
+              <Field label="Hindi (हिंदी)"><input className={inp} value={cat.hi} onChange={(e) => update(i, "hi", e.target.value)} placeholder="Hindi translation" /></Field>
+            </div>
+            <Field label="Description (English)">
+              <input className={inp} value={cat.descEn} onChange={(e) => update(i, "descEn", e.target.value)} placeholder="Short description shown under the category name" />
+            </Field>
+          </div>
+        ))}
+      </div>
+      <button onClick={add} className={btn("saffron")}>+ Add category</button>
+    </div>
+  );
+}
+
+// ── Tab: Campaigns ────────────────────────────────────────────────────────────
+function CampaignsTab() {
+  const { cms, updateCMS } = useCMS();
+  const [saved, setSaved] = useState(false);
+  const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
+
+  const update = (i: number, field: keyof CMSCampaign, value: string) =>
+    updateCMS((p) => {
+      const camps = [...p.campaigns];
+      camps[i] = { ...camps[i], [field]: value };
+      return { ...p, campaigns: camps };
+    });
+
+  const remove = (i: number) => { updateCMS((p) => ({ ...p, campaigns: p.campaigns.filter((_, idx) => idx !== i) })); flash(); };
+
+  const add = () => {
+    updateCMS((p) => ({
+      ...p,
+      campaigns: [...p.campaigns, { id: uid(), title: "New campaign", date: "", area: "" }],
+    }));
+    flash();
+  };
+
+  return (
+    <div className="max-w-2xl">
+      <SaveBanner saved={saved} />
+      <h2 className="text-xl font-display font-bold mb-1">Awareness Campaigns</h2>
+      <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>
+        These appear on the Volunteer page as upcoming campaigns people can join.
+      </p>
+      <div className="space-y-3 mb-6">
+        {cms.campaigns.map((c, i) => (
+          <div key={c.id} className="rounded-xl border p-4 space-y-3" style={{ borderColor: "var(--color-line)", borderLeft: "4px solid var(--color-green)" }}>
+            <div className="flex gap-2 items-start">
+              <div className="flex-1"><Field label="Campaign title"><input className={inp} value={c.title} onChange={(e) => update(i, "title", e.target.value)} /></Field></div>
+              <button onClick={() => remove(i)} className={btn("red") + " mt-5 shrink-0"}>Remove</button>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Field label="Date / Schedule"><input className={inp} value={c.date} onChange={(e) => update(i, "date", e.target.value)} placeholder="Jul 2026 / Monthly" /></Field>
+              <Field label="Area / Venue"><input className={inp} value={c.area} onChange={(e) => update(i, "area", e.target.value)} placeholder="Road No. 12 community hall" /></Field>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button onClick={add} className={btn("green")}>+ Add campaign</button>
+    </div>
+  );
+}
+
 // ── Nav config ────────────────────────────────────────────────────────────────
 const NAV_GROUPS = [
   {
@@ -1286,10 +1432,12 @@ const NAV_GROUPS = [
   {
     group: "Data",
     items: [
-      { key: "works", label: "Work Cases",     icon: "🔨" },
-      { key: "stats", label: "Stats & Ticker", icon: "📈" },
-      { key: "wards", label: "Ward Data",      icon: "🗺️" },
-      { key: "steps", label: "Process Steps",  icon: "📋" },
+      { key: "works",      label: "Work Cases",       icon: "🔨" },
+      { key: "stats",      label: "Stats & Ticker",   icon: "📈" },
+      { key: "wards",      label: "Ward Data",        icon: "🗺️" },
+      { key: "steps",      label: "Process Steps",    icon: "📋" },
+      { key: "helpcats",   label: "Help Categories",  icon: "🤝" },
+      { key: "campaigns",  label: "Campaigns",        icon: "📣" },
     ],
   },
   {
@@ -1300,7 +1448,7 @@ const NAV_GROUPS = [
   },
 ] as const;
 
-type TabKey = "overview" | "submissions" | "volunteers" | "home" | "allpages" | "site" | "chairman" | "bio" | "gallery" | "timeline" | "works" | "stats" | "wards" | "steps" | "reset";
+type TabKey = "overview" | "submissions" | "volunteers" | "home" | "allpages" | "site" | "chairman" | "bio" | "gallery" | "timeline" | "works" | "stats" | "wards" | "steps" | "helpcats" | "campaigns" | "reset";
 
 // ── Sidebar nav ───────────────────────────────────────────────────────────────
 function SidebarNav({ tab, setTab, onClose }: { tab: TabKey; setTab: (t: TabKey) => void; onClose?: () => void }) {
@@ -1369,6 +1517,7 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen flex" style={{ background: "#f4f5f7" }}>
+      <SaveErrorBanner />
 
       {/* ── Desktop sidebar ─────────────────────────────────────────── */}
       <aside className="hidden md:flex flex-col w-56 shrink-0 bg-white border-r sticky top-0 h-screen overflow-hidden" style={{ borderColor: "var(--color-line)" }}>
@@ -1460,6 +1609,8 @@ export default function Admin() {
           {tab === "steps"       && <ProcessStepsTab />}
           {tab === "submissions" && <SubmissionsTab />}
           {tab === "volunteers"  && <VolunteersTab />}
+          {tab === "helpcats"    && <HelpCategoriesTab />}
+          {tab === "campaigns"   && <CampaignsTab />}
           {tab === "reset"       && <ResetTab />}
         </main>
       </div>

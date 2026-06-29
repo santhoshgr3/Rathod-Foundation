@@ -17,6 +17,11 @@ export const leader = {
   phones: ["+91 94901 26246", "+91 93924 46246"],
   whatsapp: "919490126246", // digits only, for wa.me link
   email: "office@rathodfoundation.in", // TODO: confirm real address
+  siteUrl: "https://rathodfoundation.in",
+  facebook: "",
+  instagram: "",
+  youtube: "",
+  twitter: "",
   photos: {
     heroPrimary: "/img/namaste-red.jpeg",
     heroSecondary: "/img/namaste-tricolor.jpeg",

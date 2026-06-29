@@ -6,6 +6,8 @@ type CMSContextType = {
   updateCMS: (updater: (prev: CMSContent) => CMSContent) => void;
   resetToDefaults: () => Promise<void>;
   saving: boolean;
+  saveError: string | null;
+  clearSaveError: () => void;
 };
 
 const CMSContext = createContext<CMSContextType | null>(null);
@@ -13,6 +15,7 @@ const CMSContext = createContext<CMSContextType | null>(null);
 export function CMSProvider({ children }: { children: ReactNode }) {
   const [cms, setCMS] = useState<CMSContent | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const initialLoad = useRef(true);
   const prevCmsRef = useRef<CMSContent | null>(null); // snapshot before last save
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -36,9 +39,16 @@ export function CMSProvider({ children }: { children: ReactNode }) {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setSaving(true);
     saveTimer.current = setTimeout(async () => {
-      await saveCMS(cms, prevSnapshot ?? undefined);
-      prevCmsRef.current = cms; // advance anchor after successful save
-      setSaving(false);
+      try {
+        await saveCMS(cms, prevSnapshot ?? undefined);
+        prevCmsRef.current = cms;
+        setSaveError(null);
+      } catch (e) {
+        setSaveError("Save failed — check your connection and try again.");
+        console.error("[cms] save error:", e);
+      } finally {
+        setSaving(false);
+      }
     }, 600);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -50,6 +60,8 @@ export function CMSProvider({ children }: { children: ReactNode }) {
   const updateCMS = useCallback((updater: (prev: CMSContent) => CMSContent) => {
     setCMS((prev) => updater(prev ?? defaults()));
   }, []);
+
+  const clearSaveError = useCallback(() => setSaveError(null), []);
 
   const resetToDefaults = useCallback(async () => {
     await resetCMS();
@@ -72,7 +84,7 @@ export function CMSProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <CMSContext.Provider value={{ cms, updateCMS, resetToDefaults, saving }}>
+    <CMSContext.Provider value={{ cms, updateCMS, resetToDefaults, saving, saveError, clearSaveError }}>
       {children}
     </CMSContext.Provider>
   );

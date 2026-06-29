@@ -2,10 +2,9 @@ import { QRCodeSVG } from "qrcode.react";
 import { useRef } from "react";
 import { useCMS } from "../contexts/CMSContext";
 
-const SITE_URL = "https://rathodfoundation.in"; // update when domain is live
-
 export default function QRCodePage() {
   const { cms: { leader } } = useCMS();
+  const SITE_URL = leader.siteUrl || "https://rathodfoundation.in";
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => window.print();

@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "../components/ui";
-import { categoryLabel, helpCategories } from "../data/help";
+import { categoryLabel } from "../data/help";
 import { useCMS } from "../contexts/CMSContext";
 import { useT } from "../lib/i18n";
 import { createCase, STAGES, type Case } from "../lib/store";
@@ -220,7 +220,7 @@ function BackBtn({ onClick }: { onClick: () => void }) {
 // ── Main wizard ───────────────────────────────────────────────────────────────
 export default function SeekHelp() {
   const { t, lang } = useT();
-  const { cms: { leader } } = useCMS();
+  const { cms: { leader, helpCategories } } = useCMS();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 

@@ -3,25 +3,24 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import PageHeader from "../components/PageHeader";
 import { Icon, Reveal } from "../components/ui";
-import { campaigns } from "../data/help";
 import { useT } from "../lib/i18n";
 import { saveSuggestion, saveVolunteer } from "../lib/store";
 import { useCMS } from "../contexts/CMSContext";
 
 export default function Volunteer() {
   const { t } = useT();
-  const { cms: { pages } } = useCMS();
+  const { cms: { pages, campaigns, wards } } = useCMS();
   const p = pages.volunteer;
   return (
     <>
       <PageHeader eyebrow={p.eyebrow} title={p.title} subtitle={p.subtitle} />
       <section className="py-16 bg-white">
         <div className="mx-auto max-w-7xl px-5 sm:px-8 grid lg:grid-cols-[1.1fr_0.9fr] gap-8 items-start">
-          <Reveal><VolunteerForm /></Reveal>
+          <Reveal><VolunteerForm wardNames={wards.map((w) => w.name)} /></Reveal>
 
           <div className="space-y-6">
             <Reveal delay={0.06}><SuggestForm /></Reveal>
-            <Reveal delay={0.12}><Campaigns /></Reveal>
+            <Reveal delay={0.12}><Campaigns campaigns={campaigns} /></Reveal>
             <Reveal delay={0.18}>
               <div className="rounded-3xl p-6" style={{ background: "var(--color-green-tint)" }}>
                 <div className="flex items-center gap-2 font-semibold" style={{ color: "var(--color-green-text)" }}>
@@ -40,8 +39,9 @@ export default function Volunteer() {
   );
 }
 
-function VolunteerForm() {
+function VolunteerForm({ wardNames }: { wardNames: string[] }) {
   const [form, setForm] = useState({ name: "", phone: "", area: "", skills: "" });
+  const [areaMode, setAreaMode] = useState<"select" | "custom">("select");
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [done, setDone] = useState(false);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -87,7 +87,27 @@ function VolunteerForm() {
           <Field label="Your name" error={errors.name}><input className={inputCls(errors.name)} value={form.name} onChange={set("name")} /></Field>
           <Field label="Phone / WhatsApp" error={errors.phone} hint="Enter a valid number"><input className={inputCls(errors.phone)} value={form.phone} onChange={set("phone")} inputMode="tel" placeholder="+91 9xxxxxxxxx" /></Field>
         </div>
-        <Field label="Your area / ward" error={errors.area}><input className={inputCls(errors.area)} value={form.area} onChange={set("area")} placeholder="e.g. Road No. 12, Banjara Hills" /></Field>
+        <Field label="Your area / ward" error={errors.area}>
+          {areaMode === "select" ? (
+            <select
+              className={inputCls(errors.area)}
+              value={form.area}
+              onChange={(e) => {
+                if (e.target.value === "__custom__") { setAreaMode("custom"); setForm((f) => ({ ...f, area: "" })); }
+                else setForm((f) => ({ ...f, area: e.target.value }));
+              }}
+            >
+              <option value="">Select your ward / locality</option>
+              {wardNames.map((w) => <option key={w} value={w}>{w}</option>)}
+              <option value="__custom__">Other (type manually)</option>
+            </select>
+          ) : (
+            <div className="flex gap-2">
+              <input className={inputCls(errors.area) + " flex-1"} value={form.area} onChange={set("area")} placeholder="e.g. Road No. 12, Banjara Hills" autoFocus />
+              <button type="button" onClick={() => { setAreaMode("select"); setForm((f) => ({ ...f, area: "" })); }} className="text-xs px-3 rounded-xl border" style={{ borderColor: "var(--color-line)", color: "var(--color-muted)" }}>↩ List</button>
+            </div>
+          )}
+        </Field>
         <Field label="How would you like to help? (optional)"><textarea rows={3} className={inputCls(false) + " resize-none"} value={form.skills} onChange={set("skills")} placeholder="e.g. field visits, paperwork help, medical, teaching, driving…" /></Field>
         <button type="submit" disabled={busy} className="group w-full inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-semibold text-white transition-transform hover:scale-[1.01] disabled:opacity-60" style={{ background: "var(--color-saffron)" }}>
           {busy ? "Submitting…" : <>Join as a volunteer <Icon.arrow className="w-4 h-4 transition-transform group-hover:translate-x-1" /></>}
@@ -122,7 +142,7 @@ function SuggestForm() {
   );
 }
 
-function Campaigns() {
+function Campaigns({ campaigns }: { campaigns: { id: string; title: string; date: string; area: string }[] }) {
   return (
     <div className="rounded-3xl p-6 card">
       <div className="flex items-center gap-2 font-semibold" style={{ color: "var(--color-green-text)" }}><Icon.users className="w-5 h-5" /> Join an awareness campaign</div>

@@ -16,6 +16,7 @@ import {
   chairman as dChairman,
 } from "../data/content";
 import type { WorkCase } from "../data/content";
+import { helpCategories as dHelpCategories, campaigns as dCampaigns } from "../data/help";
 
 // ── Exported types ────────────────────────────────────────────────────────────
 
@@ -55,6 +56,22 @@ export type CMSChairman = {
 
 export type CMSPageHeader = { eyebrow: string; title: string; subtitle: string };
 
+export type CMSHelpCategory = {
+  id: string;
+  icon: string;
+  en: string;
+  te: string;
+  hi: string;
+  descEn: string;
+};
+
+export type CMSCampaign = {
+  id: string;
+  title: string;
+  date: string;
+  area: string;
+};
+
 export type CMSHome = {
   badge: string;
   heroTitle: string;
@@ -89,6 +106,8 @@ export type CMSContent = {
   gallery: CMSGalleryPhoto[];
   timeline: CMSTimelineEntry[];
   workCases: CMSWorkCase[];
+  helpCategories: CMSHelpCategory[];
+  campaigns: CMSCampaign[];
   adminPassword: string;
 };
 
@@ -124,7 +143,7 @@ export function defaults(): CMSContent {
     },
     chairman: {
       name: dChairman.name, role: dChairman.role, affiliation: dChairman.affiliation,
-      bio: dChairman.bio, highlights: [...dChairman.highlights], photo: "/img/chairman.jpeg.jpeg",
+      bio: dChairman.bio, highlights: [...dChairman.highlights], photo: "/img/chairman.jpeg",
     },
     home: {
       badge:        "24-hour response · Banjara Hills",
@@ -149,10 +168,12 @@ export function defaults(): CMSContent {
     steps:         dSteps.map((s) => ({ ...s })),
     promises:      [...dPromises],
     wards:         dWards.map((w) => ({ ...w })),
-    gallery:       DEFAULT_GALLERY.map((p) => ({ ...p })),
-    timeline:      DEFAULT_TIMELINE.map((t) => ({ ...t })),
-    workCases:     dCases.map((c) => ({ ...c })),
-    adminPassword: "RF@2024",
+    gallery:        DEFAULT_GALLERY.map((p) => ({ ...p })),
+    timeline:       DEFAULT_TIMELINE.map((t) => ({ ...t })),
+    workCases:      dCases.map((c) => ({ ...c })),
+    helpCategories: dHelpCategories.map((h) => ({ id: h.id, icon: h.icon, en: h.en, te: h.te, hi: h.hi, descEn: h.descEn })),
+    campaigns:      dCampaigns.map((c) => ({ ...c })),
+    adminPassword:  "RF@2024",
   };
 }
 
@@ -179,10 +200,33 @@ async function saveSite(c: CMSContent): Promise<void> {
     phones: c.leader.phones,
     languages: c.leader.languages,
     photos: c.leader.photos,
+    site_url: c.leader.siteUrl,
+    facebook: c.leader.facebook,
+    instagram: c.leader.instagram,
+    youtube: c.leader.youtube,
+    twitter: c.leader.twitter,
     admin_password: c.adminPassword,
     updated_at: new Date().toISOString(),
   });
   if (error) console.error("[cms] saveSite:", error);
+}
+
+async function saveHelpCategories(c: CMSContent): Promise<void> {
+  await supabase!.from("cms_help_categories").delete().gte("sort_order", 0);
+  if (!c.helpCategories.length) return;
+  const { error } = await supabase!.from("cms_help_categories").insert(
+    c.helpCategories.map((h, i) => ({ id: h.id, icon: h.icon, en: h.en, te: h.te, hi: h.hi, desc_en: h.descEn, sort_order: i }))
+  );
+  if (error) console.error("[cms] saveHelpCategories:", error);
+}
+
+async function saveCampaigns(c: CMSContent): Promise<void> {
+  await supabase!.from("cms_campaigns").delete().gte("sort_order", 0);
+  if (!c.campaigns.length) return;
+  const { error } = await supabase!.from("cms_campaigns").insert(
+    c.campaigns.map((cam, i) => ({ id: cam.id, title: cam.title, date: cam.date, area: cam.area, sort_order: i }))
+  );
+  if (error) console.error("[cms] saveCampaigns:", error);
 }
 
 async function saveHome(c: CMSContent): Promise<void> {
@@ -317,6 +361,8 @@ export async function loadCMS(): Promise<CMSContent> {
       { data: statRows },
       { data: wardRows },
       { data: stepRows },
+      { data: helpCatRows },
+      { data: campaignRows },
     ] = await Promise.all([
       supabase.from("cms_site").select("*").eq("id", 1).maybeSingle(),
       supabase.from("cms_home").select("*").eq("id", 1).maybeSingle(),
@@ -329,6 +375,8 @@ export async function loadCMS(): Promise<CMSContent> {
       supabase.from("cms_stats").select("*").order("sort_order"),
       supabase.from("cms_wards").select("*").order("sort_order"),
       supabase.from("cms_steps").select("*").order("sort_order"),
+      supabase.from("cms_help_categories").select("*").order("sort_order"),
+      supabase.from("cms_campaigns").select("*").order("sort_order"),
     ]);
 
     // DB error (e.g. tables not created yet) — return defaults without seeding
@@ -358,6 +406,11 @@ export async function loadCMS(): Promise<CMSContent> {
         phones:    (siteRow.phones as string[]) ?? [],
         languages: (siteRow.languages as string[]) ?? [],
         photos:    (siteRow.photos as CMSLeader["photos"]) ?? def.leader.photos,
+        siteUrl:   (siteRow as Record<string, unknown>).site_url as string ?? def.leader.siteUrl,
+        facebook:  (siteRow as Record<string, unknown>).facebook as string ?? "",
+        instagram: (siteRow as Record<string, unknown>).instagram as string ?? "",
+        youtube:   (siteRow as Record<string, unknown>).youtube as string ?? "",
+        twitter:   (siteRow as Record<string, unknown>).twitter as string ?? "",
       },
       adminPassword: siteRow.admin_password ?? def.adminPassword,
 
@@ -430,6 +483,18 @@ export async function loadCMS(): Promise<CMSContent> {
       steps: stepRows?.length
         ? (stepRows as { n: string; title: string; text: string }[]).map((r) => ({ n: r.n, title: r.title, text: r.text }))
         : def.steps,
+
+      helpCategories: helpCatRows?.length
+        ? (helpCatRows as { id: string; icon: string; en: string; te: string; hi: string; desc_en: string }[]).map((r) => ({
+            id: r.id, icon: r.icon, en: r.en, te: r.te, hi: r.hi, descEn: r.desc_en,
+          }))
+        : def.helpCategories,
+
+      campaigns: campaignRows?.length
+        ? (campaignRows as { id: string; title: string; date: string; area: string }[]).map((r) => ({
+            id: r.id, title: r.title, date: r.date, area: r.area,
+          }))
+        : def.campaigns,
     };
   } catch (e) {
     console.error("[cms] loadCMS error:", e);
@@ -469,6 +534,10 @@ export async function saveCMS(next: CMSContent, prev?: CMSContent): Promise<void
         ? saveWards(next) : Promise.resolve(),
       (all || changed(next.steps, prev!.steps))
         ? saveSteps(next) : Promise.resolve(),
+      (all || changed(next.helpCategories, prev!.helpCategories))
+        ? saveHelpCategories(next) : Promise.resolve(),
+      (all || changed(next.campaigns, prev!.campaigns))
+        ? saveCampaigns(next) : Promise.resolve(),
     ]);
   } catch (e) {
     console.error("[cms] saveCMS error:", e);
