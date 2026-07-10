@@ -621,7 +621,7 @@ function useMediaUpload(onResult: (url: string) => void, accept = "image/*,video
     if (!file) return;
     const mb = file.size / (1024 * 1024);
     const isVideo = file.type.startsWith("video/");
-    const limit = isVideo ? 50 : 8;
+    const limit = isVideo ? 200 : 15;
     if (mb > limit) {
       setSizeWarn(`File is ${mb.toFixed(1)} MB — max ${limit} MB for ${isVideo ? "video" : "image"}. For larger videos use a hosted URL instead.`);
       return;
@@ -634,8 +634,8 @@ function useMediaUpload(onResult: (url: string) => void, accept = "image/*,video
       setSizeWarn(res.inline
         ? "⚠ Stored inline (slower) — storage bucket missing. Run the storage migration in Supabase to enable proper uploads."
         : null);
-    } catch {
-      setSizeWarn("Upload failed — check your connection and try again.");
+    } catch (err) {
+      setSizeWarn(err instanceof Error ? err.message : "Upload failed — check your connection and try again.");
     } finally {
       setUploading(false);
     }
@@ -737,7 +737,7 @@ function GalleryTab() {
               >
                 <span className="text-3xl">{newUpload.uploading ? "⏳" : "🎬"}</span>
                 <span className="text-sm font-medium">{newUpload.uploading ? "Reading file…" : "Click to choose image or video"}</span>
-                <span className="text-xs">JPG · PNG · WEBP (max 8 MB) &nbsp;·&nbsp; MP4 · MOV · WEBM (max 50 MB)</span>
+                <span className="text-xs">JPG · PNG · WEBP (max 15 MB) &nbsp;·&nbsp; MP4 · MOV · WEBM (max 200 MB)</span>
               </button>
             )}
             {newUpload.sizeWarn && <p className="text-xs text-red-600 mt-1">{newUpload.sizeWarn}</p>}
@@ -987,7 +987,7 @@ function WorkCaseMediaField({
             >
               <span className="text-2xl">{upload.uploading ? "⏳" : "🖼️"}</span>
               <span className="text-xs font-medium">{upload.uploading ? "Reading file…" : "Click to upload image or video"}</span>
-              <span className="text-[10px]">JPG · PNG (max 8 MB) · MP4 · MOV (max 50 MB)</span>
+              <span className="text-[10px]">JPG · PNG (max 15 MB) · MP4 · MOV (max 200 MB)</span>
             </button>
           )}
           {upload.sizeWarn && <p className="text-xs text-red-600">{upload.sizeWarn}</p>}

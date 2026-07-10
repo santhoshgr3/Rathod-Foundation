@@ -36,5 +36,9 @@ export async function uploadMedia(file: File): Promise<UploadResult> {
     }
     console.warn("[upload] storage upload failed, falling back to inline base64:", error.message);
   }
+  // Inline fallback only for small files — large base64 blobs would bloat the DB
+  if (file.size > 4 * 1024 * 1024) {
+    throw new Error("Storage upload failed and the file is too large to store inline. Run the storage migration (supabase/migrations/20260710_storage_media.sql) to enable uploads up to 200 MB.");
+  }
   return { url: await fileToDataURL(file), inline: true };
 }
