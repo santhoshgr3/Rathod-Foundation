@@ -1449,6 +1449,7 @@ const PAGE_KEYS: { key: keyof import("../lib/cms").CMSPages; label: string; icon
   { key: "track",     label: "Track a Case",    icon: "🔍" },
   { key: "about",     label: "About",           icon: "👤" },
   { key: "seekHelp",  label: "Seek Help",       icon: "🤝" },
+  { key: "activities",label: "Activities",      icon: "🗓️" },
 ];
 
 function PageHeaderField({ pageKey, label, icon }: { pageKey: keyof import("../lib/cms").CMSPages; label: string; icon: string }) {

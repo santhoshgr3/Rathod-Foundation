@@ -91,6 +91,7 @@ export type CMSPages = {
   track: CMSPageHeader;
   about: CMSPageHeader;
   seekHelp: CMSPageHeader;
+  activities: CMSPageHeader;
 };
 
 export type CMSContent = {
@@ -163,6 +164,7 @@ export function defaults(): CMSContent {
       track:     { eyebrow: "Track your case",    title: "Track your case",                     subtitle: "Enter your case ID to see exactly where your request stands — updated in real time." },
       about:     { eyebrow: "About",              title: "Meet Dhanraj Rathod",                 subtitle: "A grassroots leader from Banjara Hills who measures success in problems solved — not promises made." },
       seekHelp:  { eyebrow: "Seek help",          title: "How can we help you?",                subtitle: "Tell us what you need — a volunteer will reach out within 24 hours." },
+      activities:{ eyebrow: "Activities",         title: "On the ground, every week",           subtitle: "A live record of Dhanraj Rathod's work — resolved cases, community events, and upcoming campaigns across Banjara Hills." },
     },
     stats:         dStats.map((s) => ({ ...s })),
     steps:         dSteps.map((s) => ({ ...s })),

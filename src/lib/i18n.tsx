@@ -12,6 +12,7 @@ const D: Dict = {
   "nav.involved": { en: "Get involved", te: "భాగస్వామ్యం", hi: "जुड़ें" },
   "nav.gallery": { en: "Gallery", te: "గ్యాలరీ", hi: "गैलरी" },
   "nav.work": { en: "Our work", te: "మా పని", hi: "हमारा काम" },
+  "nav.activities": { en: "Activities", te: "కార్యకలాపాలు", hi: "गतिविधियाँ" },
   "nav.about": { en: "About", te: "గురించి", hi: "परिचय" },
   "nav.report": { en: "Report an issue", te: "సమస్యను నివేదించండి", hi: "समस्या दर्ज करें" },
 

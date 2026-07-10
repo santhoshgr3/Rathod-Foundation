@@ -13,6 +13,7 @@ const Track = lazy(() => import("./pages/Track"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Volunteer = lazy(() => import("./pages/Volunteer"));
 const Gallery = lazy(() => import("./pages/Gallery"));
+const Activities = lazy(() => import("./pages/Activities"));
 const Admin = lazy(() => import("./pages/Admin"));
 const QRCodePage = lazy(() => import("./pages/QRCode"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="/process" element={<Process />} />
           <Route path="/report" element={<Report />} />
           <Route path="/gallery" element={<Gallery />} />
+          <Route path="/activities" element={<Activities />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

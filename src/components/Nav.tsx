@@ -17,6 +17,7 @@ export default function Nav() {
     { to: "/seek-help", label: t("nav.seekHelp") },
     { to: "/track", label: t("nav.track") },
     { to: "/work", label: t("nav.work") },
+    { to: "/activities", label: t("nav.activities") },
     { to: "/dashboard", label: t("nav.dashboard") },
     { to: "/volunteer", label: t("nav.involved") },
     { to: "/gallery", label: t("nav.gallery") },
@@ -96,7 +97,7 @@ export default function Nav() {
             style={{ borderColor: "var(--color-line)" }}
           >
             <div className="px-5 pb-5 pt-2 space-y-0.5">
-              {[...links, { to: "/work", label: t("nav.work"), end: false }, { to: "/report", label: t("nav.report"), end: false }].map((l, i) => (
+              {[...links, { to: "/report", label: t("nav.report"), end: false }].map((l, i) => (
                 <motion.div
                   key={l.to}
                   initial={{ opacity: 0, x: -12 }}
