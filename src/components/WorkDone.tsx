@@ -87,9 +87,8 @@ function CaseCard({ c }: { c: WorkCase }) {
 
 function PlaceholderImg({ src, kind, category }: { src: string; kind: "before" | "after"; category: string }) {
   const [failed, setFailed] = useState(false);
-  const isDataUri = src.startsWith("data:");
-  const resolvedSrc = isDataUri ? src : `/img/${src}`;
-  const isVideo = src.startsWith("data:video") || /\.(mp4|webm|mov|avi)$/i.test(src);
+  const resolvedSrc = src.startsWith("data:") || src.startsWith("http") || src.startsWith("/") ? src : `/img/${src}`;
+  const isVideo = src.startsWith("data:video") || /\.(mp4|webm|mov|avi)(\?|$)/i.test(src);
 
   if (!failed) {
     if (isVideo) {

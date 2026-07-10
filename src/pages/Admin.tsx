@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useCMS } from "../contexts/CMSContext";
 import { uid, type CMSGalleryPhoto, type CMSTimelineEntry, type CMSWard, type CMSStat, type CMSWorkCase, type CMSChairman, type CMSStep, type CMSPageHeader, type CMSHome, type CMSHelpCategory, type CMSCampaign } from "../lib/cms";
 import { listCases, listVolunteers, updateCaseStage, STAGES, type Case as CaseT, type Volunteer as VolunteerT } from "../lib/store";
+import { uploadMedia } from "../lib/upload";
 
 // ── Auth gate ─────────────────────────────────────────────────────────────────
 function LoginGate({ password, onLogin }: { password: string; onLogin: () => void }) {
@@ -436,6 +437,18 @@ function SiteInfoTab() {
         </div>
 
         <div className="border-t pt-4" style={{ borderColor: "var(--color-line)" }}>
+          <h3 className="font-semibold mb-1 text-sm">Site photos</h3>
+          <p className="text-xs mb-3" style={{ color: "var(--color-muted)" }}>These photos appear across the website. Changes save instantly.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <LeaderPhotoSlot photoKey="heroPrimary"   label="Hero portrait (home)" />
+            <LeaderPhotoSlot photoKey="heroSecondary" label="Secondary portrait" />
+            <LeaderPhotoSlot photoKey="candid"        label="Candid / on the ground" />
+            <LeaderPhotoSlot photoKey="withCM"        label="With officials" />
+            <LeaderPhotoSlot photoKey="biodata"       label="Official biodata photo" />
+          </div>
+        </div>
+
+        <div className="border-t pt-4" style={{ borderColor: "var(--color-line)" }}>
           <h3 className="font-semibold mb-3 text-sm">Bio introduction paragraph</h3>
           <Field label="Bio intro">
             <textarea className={inp + " h-24 resize-none"} value={local.bioIntro} onChange={set("bioIntro")} />
@@ -450,6 +463,30 @@ function SiteInfoTab() {
         </div>
 
         <button onClick={save} className={btn("saffron") + " px-5 py-2.5 text-sm"}>Save changes</button>
+      </div>
+    </div>
+  );
+}
+
+/* One leader photo slot — preview + upload button, saves straight to CMS */
+function LeaderPhotoSlot({ photoKey, label }: { photoKey: keyof import("../lib/cms").CMSLeader["photos"]; label: string }) {
+  const { cms, updateCMS } = useCMS();
+  const src = cms.leader.photos[photoKey];
+  const upload = useImageUpload((url) =>
+    updateCMS((p) => ({ ...p, leader: { ...p.leader, photos: { ...p.leader.photos, [photoKey]: url } } }))
+  );
+  return (
+    <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--color-line)" }}>
+      {upload.input}
+      <div className="h-24 bg-gray-100">
+        <img src={src} alt={label} className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }} />
+      </div>
+      <div className="p-2">
+        <div className="text-[11px] font-semibold leading-tight mb-1.5">{label}</div>
+        <button onClick={upload.trigger} disabled={upload.uploading} className="w-full text-[11px] font-semibold rounded-lg py-1.5 transition-colors" style={{ background: "var(--color-saffron-tint)", color: "var(--color-saffron-text)" }}>
+          {upload.uploading ? "⏳ Uploading…" : "📤 Replace"}
+        </button>
+        {upload.sizeWarn && <p className="text-[10px] text-red-600 mt-1">{upload.sizeWarn}</p>}
       </div>
     </div>
   );
@@ -571,64 +608,45 @@ function ProcessStepsTab() {
 }
 
 // ── Tab: Gallery ──────────────────────────────────────────────────────────────
-function useMediaUpload(onResult: (base64: string) => void, accept = "image/*,video/*") {
+function useMediaUpload(onResult: (url: string) => void, accept = "image/*,video/*") {
   const ref = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [sizeWarn, setSizeWarn] = useState<string | null>(null);
 
   const trigger = () => ref.current?.click();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
     const mb = file.size / (1024 * 1024);
     const isVideo = file.type.startsWith("video/");
-    const limit = isVideo ? 20 : 4;
+    const limit = isVideo ? 50 : 8;
     if (mb > limit) {
-      setSizeWarn(`File is ${mb.toFixed(1)} MB — max ${limit} MB for ${isVideo ? "video" : "image"}. For large videos use a hosted URL instead.`);
+      setSizeWarn(`File is ${mb.toFixed(1)} MB — max ${limit} MB for ${isVideo ? "video" : "image"}. For larger videos use a hosted URL instead.`);
       return;
     }
     setSizeWarn(null);
     setUploading(true);
-    const reader = new FileReader();
-    reader.onload = (ev) => { onResult(ev.target?.result as string); setUploading(false); };
-    reader.readAsDataURL(file);
-    e.target.value = "";
+    try {
+      const res = await uploadMedia(file);
+      onResult(res.url);
+      setSizeWarn(res.inline
+        ? "⚠ Stored inline (slower) — storage bucket missing. Run the storage migration in Supabase to enable proper uploads."
+        : null);
+    } catch {
+      setSizeWarn("Upload failed — check your connection and try again.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const input = <input ref={ref} type="file" accept={accept} className="hidden" onChange={handleChange} />;
   return { trigger, uploading, sizeWarn, input };
 }
 
-function useImageUpload(onResult: (base64: string) => void) {
-  const ref = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [sizeWarn, setSizeWarn] = useState<string | null>(null);
-
-  const trigger = () => ref.current?.click();
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const mb = file.size / (1024 * 1024);
-    if (mb > 4) { setSizeWarn(`File is ${mb.toFixed(1)} MB — please use an image under 4 MB.`); return; }
-    setSizeWarn(null);
-    setUploading(true);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      onResult(ev.target?.result as string);
-      setUploading(false);
-    };
-    reader.readAsDataURL(file);
-    // reset so same file can be re-selected
-    e.target.value = "";
-  };
-
-  const input = (
-    <input ref={ref} type="file" accept="image/*" className="hidden" onChange={handleChange} />
-  );
-
-  return { trigger, uploading, sizeWarn, input };
+function useImageUpload(onResult: (url: string) => void) {
+  return useMediaUpload(onResult, "image/*");
 }
 
 function GalleryTab() {
@@ -698,9 +716,9 @@ function GalleryTab() {
         {inputMode === "upload" ? (
           <div>
             {newUpload.input}
-            {newPhoto.src.startsWith("data:") ? (
+            {newPhoto.src.startsWith("data:") || newPhoto.src.startsWith("http") ? (
               <div className="relative inline-block w-full">
-                {newPhoto.src.startsWith("data:video") ? (
+                {newPhoto.src.startsWith("data:video") || /\.(mp4|webm|mov|avi)(\?|$)/i.test(newPhoto.src) ? (
                   <video src={newPhoto.src} controls className="w-full max-h-48 rounded-xl bg-black" />
                 ) : (
                   <img src={newPhoto.src} alt="preview" className="w-full h-40 rounded-xl object-cover border" style={{ borderColor: "var(--color-line)" }} />
@@ -719,7 +737,7 @@ function GalleryTab() {
               >
                 <span className="text-3xl">{newUpload.uploading ? "⏳" : "🎬"}</span>
                 <span className="text-sm font-medium">{newUpload.uploading ? "Reading file…" : "Click to choose image or video"}</span>
-                <span className="text-xs">JPG · PNG · WEBP (max 4 MB) &nbsp;·&nbsp; MP4 · MOV · WEBM (max 20 MB)</span>
+                <span className="text-xs">JPG · PNG · WEBP (max 8 MB) &nbsp;·&nbsp; MP4 · MOV · WEBM (max 50 MB)</span>
               </button>
             )}
             {newUpload.sizeWarn && <p className="text-xs text-red-600 mt-1">{newUpload.sizeWarn}</p>}
@@ -784,7 +802,7 @@ function ExistingPhotoRow({
   onRemove: (id: string) => void;
 }) {
   const replaceUpload = useMediaUpload((base64) => onUpdateField(photo.id, "src", base64));
-  const isVideo = photo.src.startsWith("data:video") || /\.(mp4|webm|mov|avi)$/i.test(photo.src);
+  const isVideo = photo.src.startsWith("data:video") || /\.(mp4|webm|mov|avi)(\?|$)/i.test(photo.src);
   const srcLabel = photo.src.startsWith("data:") ? (isVideo ? "📎 Uploaded video" : "📎 Uploaded image") : photo.src;
 
   return (
@@ -915,11 +933,12 @@ function WorkCaseMediaField({
   onChange: (val: string) => void;
 }) {
   const isData = value.startsWith("data:");
+  const isUploaded = isData || value.startsWith("http");
   const isVideo = isData
     ? value.startsWith("data:video")
-    : /\.(mp4|webm|mov|avi|mkv)$/i.test(value);
-  const [mode, setMode] = useState<"upload" | "url">(isData ? "upload" : "url");
-  const upload = useMediaUpload((b64) => { onChange(b64); setMode("upload"); });
+    : /\.(mp4|webm|mov|avi|mkv)(\?|$)/i.test(value);
+  const [mode, setMode] = useState<"upload" | "url">(isUploaded || !value ? "upload" : "url");
+  const upload = useMediaUpload((url) => { onChange(url); setMode("upload"); });
 
   return (
     <div className="space-y-2">
@@ -945,7 +964,7 @@ function WorkCaseMediaField({
 
       {mode === "upload" ? (
         <div>
-          {value && isData ? (
+          {value && isUploaded ? (
             /* preview */
             <div className="relative inline-block w-full">
               {isVideo ? (
@@ -968,7 +987,7 @@ function WorkCaseMediaField({
             >
               <span className="text-2xl">{upload.uploading ? "⏳" : "🖼️"}</span>
               <span className="text-xs font-medium">{upload.uploading ? "Reading file…" : "Click to upload image or video"}</span>
-              <span className="text-[10px]">JPG · PNG · MP4 · MOV · max 20 MB</span>
+              <span className="text-[10px]">JPG · PNG (max 8 MB) · MP4 · MOV (max 50 MB)</span>
             </button>
           )}
           {upload.sizeWarn && <p className="text-xs text-red-600">{upload.sizeWarn}</p>}
