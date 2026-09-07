@@ -14,6 +14,7 @@ import {
   cases as dCases,
   steps as dSteps,
   chairman as dChairman,
+  categories as dReportCategories,
 } from "../data/content";
 import type { WorkCase } from "../data/content";
 import { helpCategories as dHelpCategories, campaigns as dCampaigns } from "../data/help";
@@ -109,7 +110,8 @@ export type CMSContent = {
   workCases: CMSWorkCase[];
   helpCategories: CMSHelpCategory[];
   campaigns: CMSCampaign[];
-  adminPassword: string;
+  /** Issue types shown in the "Report an issue" form dropdown. */
+  reportCategories: string[];
 };
 
 // ── Built-in gallery defaults ─────────────────────────────────────────────────
@@ -175,13 +177,27 @@ export function defaults(): CMSContent {
     workCases:      dCases.map((c) => ({ ...c })),
     helpCategories: dHelpCategories.map((h) => ({ id: h.id, icon: h.icon, en: h.en, te: h.te, hi: h.hi, descEn: h.descEn })),
     campaigns:      dCampaigns.map((c) => ({ ...c })),
-    adminPassword:  "RF@2024",
+    reportCategories: [...dReportCategories],
   };
 }
 
 // ── Internal: diff helper ─────────────────────────────────────────────────────
 function changed<T>(a: T, b: T): boolean {
   return JSON.stringify(a) !== JSON.stringify(b);
+}
+
+// Drop rows sharing an identity key, keeping the first. Guards the UI against a
+// DB that accumulated duplicate rows (older seeds wrote null sort_order, which
+// the delete-then-insert save path used to skip). The next admin save rewrites
+// the table cleanly.
+function dedupeBy<T>(rows: T[], key: (row: T) => string): T[] {
+  const seen = new Set<string>();
+  return rows.filter((r) => {
+    const k = key(r);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
 
 // ── Internal: per-domain save functions ───────────────────────────────────────
@@ -207,28 +223,36 @@ async function saveSite(c: CMSContent): Promise<void> {
     instagram: c.leader.instagram,
     youtube: c.leader.youtube,
     twitter: c.leader.twitter,
-    admin_password: c.adminPassword,
     updated_at: new Date().toISOString(),
   });
-  if (error) console.error("[cms] saveSite:", error);
+  if (error) { console.error("[cms] saveSite:", error); throw error; }
 }
 
 async function saveHelpCategories(c: CMSContent): Promise<void> {
-  await supabase!.from("cms_help_categories").delete().gte("sort_order", 0);
+  await supabase!.from("cms_help_categories").delete().or("sort_order.gte.0,sort_order.is.null");
   if (!c.helpCategories.length) return;
   const { error } = await supabase!.from("cms_help_categories").insert(
     c.helpCategories.map((h, i) => ({ id: h.id, icon: h.icon, en: h.en, te: h.te, hi: h.hi, desc_en: h.descEn, sort_order: i }))
   );
-  if (error) console.error("[cms] saveHelpCategories:", error);
+  if (error) { console.error("[cms] saveHelpCategories:", error); throw error; }
 }
 
 async function saveCampaigns(c: CMSContent): Promise<void> {
-  await supabase!.from("cms_campaigns").delete().gte("sort_order", 0);
+  await supabase!.from("cms_campaigns").delete().or("sort_order.gte.0,sort_order.is.null");
   if (!c.campaigns.length) return;
   const { error } = await supabase!.from("cms_campaigns").insert(
     c.campaigns.map((cam, i) => ({ id: cam.id, title: cam.title, date: cam.date, area: cam.area, sort_order: i }))
   );
-  if (error) console.error("[cms] saveCampaigns:", error);
+  if (error) { console.error("[cms] saveCampaigns:", error); throw error; }
+}
+
+async function saveReportCategories(c: CMSContent): Promise<void> {
+  await supabase!.from("cms_report_categories").delete().or("sort_order.gte.0,sort_order.is.null");
+  if (!c.reportCategories.length) return;
+  const { error } = await supabase!.from("cms_report_categories").insert(
+    c.reportCategories.map((label, i) => ({ label, sort_order: i }))
+  );
+  if (error) { console.error("[cms] saveReportCategories:", error); throw error; }
 }
 
 async function saveHome(c: CMSContent): Promise<void> {
@@ -242,7 +266,7 @@ async function saveHome(c: CMSContent): Promise<void> {
     promises: c.promises,
     updated_at: new Date().toISOString(),
   });
-  if (error) console.error("[cms] saveHome:", error);
+  if (error) { console.error("[cms] saveHome:", error); throw error; }
 }
 
 async function savePages(c: CMSContent): Promise<void> {
@@ -256,7 +280,7 @@ async function savePages(c: CMSContent): Promise<void> {
     })
   );
   const { error } = await supabase!.from("cms_pages").upsert(rows);
-  if (error) console.error("[cms] savePages:", error);
+  if (error) { console.error("[cms] savePages:", error); throw error; }
 }
 
 async function saveChairman(c: CMSContent): Promise<void> {
@@ -270,7 +294,7 @@ async function saveChairman(c: CMSContent): Promise<void> {
     photo: c.chairman.photo,
     updated_at: new Date().toISOString(),
   });
-  if (error) console.error("[cms] saveChairman:", error);
+  if (error) { console.error("[cms] saveChairman:", error); throw error; }
 }
 
 async function saveBio(c: CMSContent): Promise<void> {
@@ -281,32 +305,34 @@ async function saveBio(c: CMSContent): Promise<void> {
     values: c.bio.values,
     updated_at: new Date().toISOString(),
   });
-  if (error) console.error("[cms] saveBio:", error);
+  if (error) { console.error("[cms] saveBio:", error); throw error; }
 }
 
 // For array tables: delete all existing rows then insert the full current set.
-// sort_order >= 0 is always true — used as a required Supabase filter to match all rows.
+// The filter "sort_order >= 0 OR sort_order IS NULL" matches every row (Supabase
+// requires a filter on delete) — including legacy rows written without a
+// sort_order, which an earlier "gte 0" filter skipped and so left as duplicates.
 
 async function saveGallery(c: CMSContent): Promise<void> {
-  await supabase!.from("cms_gallery").delete().gte("sort_order", 0);
+  await supabase!.from("cms_gallery").delete().or("sort_order.gte.0,sort_order.is.null");
   if (!c.gallery.length) return;
   const { error } = await supabase!.from("cms_gallery").insert(
     c.gallery.map((p, i) => ({ id: p.id, src: p.src, caption: p.caption, tag: p.tag, sort_order: i }))
   );
-  if (error) console.error("[cms] saveGallery:", error);
+  if (error) { console.error("[cms] saveGallery:", error); throw error; }
 }
 
 async function saveTimeline(c: CMSContent): Promise<void> {
-  await supabase!.from("cms_timeline").delete().gte("sort_order", 0);
+  await supabase!.from("cms_timeline").delete().or("sort_order.gte.0,sort_order.is.null");
   if (!c.timeline.length) return;
   const { error } = await supabase!.from("cms_timeline").insert(
     c.timeline.map((t, i) => ({ id: t.id, year: t.year, title: t.title, detail: t.detail, color: t.color, icon: t.icon, sort_order: i }))
   );
-  if (error) console.error("[cms] saveTimeline:", error);
+  if (error) { console.error("[cms] saveTimeline:", error); throw error; }
 }
 
 async function saveWorkCases(c: CMSContent): Promise<void> {
-  await supabase!.from("cms_work_cases").delete().gte("sort_order", 0);
+  await supabase!.from("cms_work_cases").delete().or("sort_order.gte.0,sort_order.is.null");
   if (!c.workCases.length) return;
   const { error } = await supabase!.from("cms_work_cases").insert(
     c.workCases.map((w, i) => ({
@@ -316,34 +342,34 @@ async function saveWorkCases(c: CMSContent): Promise<void> {
       summary: w.summary, sort_order: i,
     }))
   );
-  if (error) console.error("[cms] saveWorkCases:", error);
+  if (error) { console.error("[cms] saveWorkCases:", error); throw error; }
 }
 
 async function saveStats(c: CMSContent): Promise<void> {
-  await supabase!.from("cms_stats").delete().gte("sort_order", 0);
+  await supabase!.from("cms_stats").delete().or("sort_order.gte.0,sort_order.is.null");
   if (!c.stats.length) return;
   const { error } = await supabase!.from("cms_stats").insert(
     c.stats.map((s, i) => ({ value: s.value, suffix: s.suffix, label: s.label, sort_order: i }))
   );
-  if (error) console.error("[cms] saveStats:", error);
+  if (error) { console.error("[cms] saveStats:", error); throw error; }
 }
 
 async function saveWards(c: CMSContent): Promise<void> {
-  await supabase!.from("cms_wards").delete().gte("sort_order", 0);
+  await supabase!.from("cms_wards").delete().or("sort_order.gte.0,sort_order.is.null");
   if (!c.wards.length) return;
   const { error } = await supabase!.from("cms_wards").insert(
     c.wards.map((w, i) => ({ name: w.name, count: w.count, sort_order: i }))
   );
-  if (error) console.error("[cms] saveWards:", error);
+  if (error) { console.error("[cms] saveWards:", error); throw error; }
 }
 
 async function saveSteps(c: CMSContent): Promise<void> {
-  await supabase!.from("cms_steps").delete().gte("sort_order", 0);
+  await supabase!.from("cms_steps").delete().or("sort_order.gte.0,sort_order.is.null");
   if (!c.steps.length) return;
   const { error } = await supabase!.from("cms_steps").insert(
     c.steps.map((s, i) => ({ n: s.n, title: s.title, text: s.text, sort_order: i }))
   );
-  if (error) console.error("[cms] saveSteps:", error);
+  if (error) { console.error("[cms] saveSteps:", error); throw error; }
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -365,6 +391,7 @@ export async function loadCMS(): Promise<CMSContent> {
       { data: stepRows },
       { data: helpCatRows },
       { data: campaignRows },
+      { data: reportCatRows },
     ] = await Promise.all([
       supabase.from("cms_site").select("*").eq("id", 1).maybeSingle(),
       supabase.from("cms_home").select("*").eq("id", 1).maybeSingle(),
@@ -379,6 +406,7 @@ export async function loadCMS(): Promise<CMSContent> {
       supabase.from("cms_steps").select("*").order("sort_order"),
       supabase.from("cms_help_categories").select("*").order("sort_order"),
       supabase.from("cms_campaigns").select("*").order("sort_order"),
+      supabase.from("cms_report_categories").select("*").order("sort_order"),
     ]);
 
     // DB error (e.g. tables not created yet) — return defaults without seeding
@@ -414,7 +442,6 @@ export async function loadCMS(): Promise<CMSContent> {
         youtube:   (siteRow as Record<string, unknown>).youtube as string ?? "",
         twitter:   (siteRow as Record<string, unknown>).twitter as string ?? "",
       },
-      adminPassword: siteRow.admin_password ?? def.adminPassword,
 
       home: homeRow ? {
         badge:        homeRow.badge,
@@ -451,52 +478,80 @@ export async function loadCMS(): Promise<CMSContent> {
       } : def.bio,
 
       gallery: galleryRows?.length
-        ? (galleryRows as { id: string; src: string; caption: string; tag: string }[]).map((r) => ({
-            id: r.id, src: r.src, caption: r.caption, tag: r.tag as CMSGalleryPhoto["tag"],
-          }))
+        ? dedupeBy(
+            (galleryRows as { id: string; src: string; caption: string; tag: string }[]).map((r) => ({
+              id: r.id, src: r.src, caption: r.caption, tag: r.tag as CMSGalleryPhoto["tag"],
+            })),
+            (p) => p.id,
+          )
         : def.gallery,
 
       timeline: timelineRows?.length
-        ? (timelineRows as { id: string; year: string; title: string; detail: string; color: string; icon: string }[]).map((r) => ({
-            id: r.id, year: r.year, title: r.title, detail: r.detail,
-            color: r.color as CMSTimelineEntry["color"], icon: r.icon,
-          }))
+        ? dedupeBy(
+            (timelineRows as { id: string; year: string; title: string; detail: string; color: string; icon: string }[]).map((r) => ({
+              id: r.id, year: r.year, title: r.title, detail: r.detail,
+              color: r.color as CMSTimelineEntry["color"], icon: r.icon,
+            })),
+            (t) => t.id,
+          )
         : def.timeline,
 
       workCases: workRows?.length
-        ? (workRows as { id: string; title: string; date: string; location: string; category: string; days: number; before_media: string; after_media: string; summary: string }[]).map((r) => ({
-            id: r.id, title: r.title, date: r.date, location: r.location,
-            category: r.category, days: r.days,
-            before: r.before_media, after: r.after_media,
-            summary: r.summary,
-          }))
+        ? dedupeBy(
+            (workRows as { id: string; title: string; date: string; location: string; category: string; days: number; before_media: string; after_media: string; summary: string }[]).map((r) => ({
+              id: r.id, title: r.title, date: r.date, location: r.location,
+              category: r.category, days: r.days,
+              before: r.before_media, after: r.after_media,
+              summary: r.summary,
+            })),
+            (w) => w.id,
+          )
         : def.workCases,
 
       stats: statRows?.length
-        ? (statRows as { value: number; suffix: string; label: string }[]).map((r) => ({
-            value: r.value, suffix: r.suffix, label: r.label,
-          }))
+        ? dedupeBy(
+            (statRows as { value: number; suffix: string; label: string }[]).map((r) => ({
+              value: r.value, suffix: r.suffix, label: r.label,
+            })),
+            (s) => s.label,
+          )
         : def.stats,
 
       wards: wardRows?.length
-        ? (wardRows as { name: string; count: number }[]).map((r) => ({ name: r.name, count: r.count }))
+        ? dedupeBy(
+            (wardRows as { name: string; count: number }[]).map((r) => ({ name: r.name, count: r.count })),
+            (w) => w.name,
+          )
         : def.wards,
 
       steps: stepRows?.length
-        ? (stepRows as { n: string; title: string; text: string }[]).map((r) => ({ n: r.n, title: r.title, text: r.text }))
+        ? dedupeBy(
+            (stepRows as { n: string; title: string; text: string }[]).map((r) => ({ n: r.n, title: r.title, text: r.text })),
+            (s) => s.n,
+          )
         : def.steps,
 
       helpCategories: helpCatRows?.length
-        ? (helpCatRows as { id: string; icon: string; en: string; te: string; hi: string; desc_en: string }[]).map((r) => ({
-            id: r.id, icon: r.icon, en: r.en, te: r.te, hi: r.hi, descEn: r.desc_en,
-          }))
+        ? dedupeBy(
+            (helpCatRows as { id: string; icon: string; en: string; te: string; hi: string; desc_en: string }[]).map((r) => ({
+              id: r.id, icon: r.icon, en: r.en, te: r.te, hi: r.hi, descEn: r.desc_en,
+            })),
+            (h) => h.id,
+          )
         : def.helpCategories,
 
       campaigns: campaignRows?.length
-        ? (campaignRows as { id: string; title: string; date: string; area: string }[]).map((r) => ({
-            id: r.id, title: r.title, date: r.date, area: r.area,
-          }))
+        ? dedupeBy(
+            (campaignRows as { id: string; title: string; date: string; area: string }[]).map((r) => ({
+              id: r.id, title: r.title, date: r.date, area: r.area,
+            })),
+            (c) => c.id,
+          )
         : def.campaigns,
+
+      reportCategories: reportCatRows?.length
+        ? dedupeBy((reportCatRows as { label: string }[]).map((r) => r.label), (l) => l)
+        : def.reportCategories,
     };
   } catch (e) {
     console.error("[cms] loadCMS error:", e);
@@ -514,7 +569,7 @@ export async function saveCMS(next: CMSContent, prev?: CMSContent): Promise<void
   try {
     const all = !prev;
     await Promise.all([
-      (all || changed(next.leader, prev!.leader) || next.adminPassword !== prev!.adminPassword)
+      (all || changed(next.leader, prev!.leader))
         ? saveSite(next) : Promise.resolve(),
       (all || changed(next.home, prev!.home) || changed(next.promises, prev!.promises))
         ? saveHome(next) : Promise.resolve(),
@@ -540,9 +595,12 @@ export async function saveCMS(next: CMSContent, prev?: CMSContent): Promise<void
         ? saveHelpCategories(next) : Promise.resolve(),
       (all || changed(next.campaigns, prev!.campaigns))
         ? saveCampaigns(next) : Promise.resolve(),
+      (all || changed(next.reportCategories, prev!.reportCategories))
+        ? saveReportCategories(next) : Promise.resolve(),
     ]);
   } catch (e) {
     console.error("[cms] saveCMS error:", e);
+    throw e; // let the caller (CMSContext) know the save actually failed
   }
 }
 

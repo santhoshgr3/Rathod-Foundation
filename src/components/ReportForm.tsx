@@ -1,17 +1,19 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import { useCMS } from "../contexts/CMSContext";
-import { categories } from "../data/content";
-import { Icon, Reveal, SectionHead } from "./ui";
+import { Icon, Reveal, SectionHead, useHoneypot } from "./ui";
 import { createCase, getCase, STAGES, type Case } from "../lib/store";
 
 export default function ReportForm() {
-  const { cms: { leader } } = useCMS();
-  const [form, setForm] = useState({ name: "", phone: "", category: categories[0], location: "", details: "" });
+  const { cms: { leader, reportCategories } } = useCMS();
+  const honeypot = useHoneypot();
+  const defaultCategory = reportCategories[0] ?? "Other";
+  const [form, setForm] = useState({ name: "", phone: "", category: defaultCategory, location: "", details: "" });
   const [ticket, setTicket] = useState<Case | null>(null);
   const [copied, setCopied] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [lookupId, setLookupId] = useState("");
   const [lookupResult, setLookupResult] = useState<Case | "none" | null>(null);
@@ -23,6 +25,7 @@ export default function ReportForm() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
+    if (honeypot.isBot()) { setSubmitError("Couldn't submit your report — check your connection and try again."); return; }
     const errs: Record<string, boolean> = {};
     if (!form.name.trim()) errs.name = true;
     if (!/^[+\d][\d\s-]{7,}$/.test(form.phone.trim())) errs.phone = true;
@@ -32,6 +35,7 @@ export default function ReportForm() {
     if (Object.keys(errs).length) return;
 
     setSubmitting(true);
+    setSubmitError(null);
     try {
       const c = await createCase({
         type: "civic",
@@ -43,16 +47,19 @@ export default function ReportForm() {
         lang: "en",
       });
       setTicket(c);
+    } catch {
+      setSubmitError("Couldn't submit your report — check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
   const reset = () => {
-    setForm({ name: "", phone: "", category: categories[0], location: "", details: "" });
+    setForm({ name: "", phone: "", category: defaultCategory, location: "", details: "" });
     setTicket(null);
     setCopied(false);
     setErrors({});
+    setSubmitError(null);
   };
 
   const copyId = () => {
@@ -89,6 +96,7 @@ export default function ReportForm() {
               <AnimatePresence mode="wait">
                 {!ticket ? (
                   <motion.form key="form" onSubmit={submit} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
+                    {honeypot.field}
                     <div className="grid sm:grid-cols-2 gap-4">
                       <Field label="Your name" error={errors.name}>
                         <input className={inputCls(errors.name)} value={form.name} onChange={set("name")} placeholder="e.g. Anitha R." />
@@ -100,7 +108,7 @@ export default function ReportForm() {
                     <div className="grid sm:grid-cols-2 gap-4">
                       <Field label="Type of issue">
                         <select className={inputCls(false)} value={form.category} onChange={set("category")}>
-                          {categories.map((c) => <option key={c}>{c}</option>)}
+                          {reportCategories.map((c) => <option key={c}>{c}</option>)}
                         </select>
                       </Field>
                       <Field label="Location in Banjara Hills" error={errors.location}>
@@ -113,6 +121,7 @@ export default function ReportForm() {
                     <button type="submit" disabled={submitting} className="group w-full inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-semibold transition-transform hover:scale-[1.01] disabled:opacity-60" style={{ background: "var(--color-saffron)", color: "#fff" }}>
                       {submitting ? "Submitting…" : <>Submit &amp; get tracking number <Icon.arrow className="w-4 h-4 transition-transform group-hover:translate-x-1" /></>}
                     </button>
+                    {submitError && <p className="text-xs text-center font-medium text-red-600">{submitError}</p>}
                     <p className="text-xs text-center" style={{ color: "var(--color-muted)" }}>By submitting you agree to be contacted about this issue.</p>
                   </motion.form>
                 ) : (

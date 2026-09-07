@@ -4,24 +4,22 @@ import PageHeader from "../components/PageHeader";
 import { CountUp, Icon, Reveal } from "../components/ui";
 import { categoryLabel } from "../data/help";
 import { useT } from "../lib/i18n";
-import { getStats, listCases, STAGES, type Case, type Stats } from "../lib/store";
+import { getStats, getRecentActivity, EMPTY_STATS, STAGES, type RecentActivity, type Stats } from "../lib/store";
 import { useCMS } from "../contexts/CMSContext";
-
-const EMPTY_STATS: Stats = { received: 0, verified: 0, resolved: 0, volunteers: 0, wards: 0, byCategory: [] };
 
 export default function Dashboard() {
   const { t, lang } = useT();
   const { cms: { pages } } = useCMS();
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
-  const [recent, setRecent] = useState<Case[]>([]);
+  const [recent, setRecent] = useState<RecentActivity[]>([]);
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [s, cases] = await Promise.all([getStats(), listCases()]);
+      const [s, activity] = await Promise.all([getStats(), getRecentActivity(6)]);
       if (!alive) return;
       setStats(s);
-      setRecent(cases.slice(0, 6));
+      setRecent(activity);
     })();
     return () => { alive = false; };
   }, []);

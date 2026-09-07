@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import PageHeader from "../components/PageHeader";
-import { Icon, Reveal } from "../components/ui";
+import { Icon, Reveal, useHoneypot } from "../components/ui";
 import { useT } from "../lib/i18n";
 import { saveSuggestion, saveVolunteer } from "../lib/store";
 import { useCMS } from "../contexts/CMSContext";
@@ -40,10 +40,12 @@ export default function Volunteer() {
 }
 
 function VolunteerForm({ wardNames }: { wardNames: string[] }) {
+  const honeypot = useHoneypot();
   const [form, setForm] = useState({ name: "", phone: "", area: "", skills: "" });
   const [areaMode, setAreaMode] = useState<"select" | "custom">("select");
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [done, setDone] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const [busy, setBusy] = useState(false);
@@ -51,6 +53,7 @@ function VolunteerForm({ wardNames }: { wardNames: string[] }) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
+    if (honeypot.isBot()) { setErr("Couldn't register you right now — check your connection and try again."); return; }
     const errs: Record<string, boolean> = {};
     if (!form.name.trim()) errs.name = true;
     if (!/^[+\d][\d\s-]{7,}$/.test(form.phone.trim())) errs.phone = true;
@@ -58,9 +61,12 @@ function VolunteerForm({ wardNames }: { wardNames: string[] }) {
     setErrors(errs);
     if (Object.keys(errs).length) return;
     setBusy(true);
+    setErr(null);
     try {
       await saveVolunteer({ name: form.name.trim(), phone: form.phone.trim(), area: form.area.trim(), skills: form.skills.trim() });
       setDone(true);
+    } catch {
+      setErr("Couldn't register you right now — check your connection and try again.");
     } finally {
       setBusy(false);
     }
@@ -83,6 +89,7 @@ function VolunteerForm({ wardNames }: { wardNames: string[] }) {
       <h2 className="font-display font-bold text-xl">Give a few hours where it counts</h2>
       <p className="text-sm mt-2" style={{ color: "var(--color-muted)" }}>Volunteers verify requests on the ground, guide families, and run camps. No experience needed — just your neighbourhood and some time.</p>
       <form onSubmit={submit} className="mt-5 space-y-4">
+        {honeypot.field}
         <div className="grid sm:grid-cols-2 gap-4">
           <Field label="Your name" error={errors.name}><input className={inputCls(errors.name)} value={form.name} onChange={set("name")} /></Field>
           <Field label="Phone / WhatsApp" error={errors.phone} hint="Enter a valid number"><input className={inputCls(errors.phone)} value={form.phone} onChange={set("phone")} inputMode="tel" placeholder="+91 9xxxxxxxxx" /></Field>
@@ -112,31 +119,46 @@ function VolunteerForm({ wardNames }: { wardNames: string[] }) {
         <button type="submit" disabled={busy} className="group w-full inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-semibold text-white transition-transform hover:scale-[1.01] disabled:opacity-60" style={{ background: "var(--color-saffron)" }}>
           {busy ? "Submitting…" : <>Join as a volunteer <Icon.arrow className="w-4 h-4 transition-transform group-hover:translate-x-1" /></>}
         </button>
+        {err && <p className="text-xs text-center font-medium text-red-600">{err}</p>}
       </form>
     </div>
   );
 }
 
 function SuggestForm() {
+  const honeypot = useHoneypot();
   const [text, setText] = useState("");
   const [area, setArea] = useState("");
   const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim()) return;
-    await saveSuggestion({ kind: "issue", text: text.trim(), area: area.trim() });
-    setDone(true);
-    setText(""); setArea("");
-    setTimeout(() => setDone(false), 2600);
+    if (!text.trim() || busy) return;
+    if (honeypot.isBot()) { setErr("Couldn't send that — check your connection and try again."); return; }
+    setBusy(true);
+    setErr(null);
+    try {
+      await saveSuggestion({ kind: "issue", text: text.trim(), area: area.trim() });
+      setDone(true);
+      setText(""); setArea("");
+      setTimeout(() => setDone(false), 2600);
+    } catch {
+      setErr("Couldn't send that — check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <div className="rounded-3xl p-6 card">
       <div className="flex items-center gap-2 font-semibold" style={{ color: "var(--color-saffron-text)" }}><Icon.megaphone className="w-5 h-5" /> Suggest a community issue</div>
       <p className="text-sm mt-2" style={{ color: "var(--color-muted)" }}>See something that affects many families? Tell us where to look next.</p>
       <form onSubmit={submit} className="mt-4 space-y-3">
+        {honeypot.field}
         <input value={area} onChange={(e) => setArea(e.target.value)} placeholder="Area (optional)" className={inputCls(false)} />
         <textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="What should the foundation look into?" className={inputCls(false) + " resize-none"} />
-        <button type="submit" className="rounded-xl px-5 py-2.5 font-semibold text-sm text-white w-full" style={{ background: "var(--color-saffron)" }}>{done ? "Thank you! ✓" : "Send suggestion"}</button>
+        <button type="submit" disabled={busy} className="rounded-xl px-5 py-2.5 font-semibold text-sm text-white w-full disabled:opacity-60" style={{ background: "var(--color-saffron)" }}>{done ? "Thank you! ✓" : busy ? "Sending…" : "Send suggestion"}</button>
+        {err && <p className="text-xs text-center font-medium text-red-600">{err}</p>}
       </form>
     </div>
   );

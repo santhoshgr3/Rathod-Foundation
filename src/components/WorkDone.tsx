@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useCMS } from "../contexts/CMSContext";
 import type { WorkCase } from "../data/content";
+import { isVideoSrc } from "../lib/upload";
 import { Icon, Reveal, SectionHead } from "./ui";
 
 export default function WorkDone({ withHead = true }: { withHead?: boolean }) {
@@ -88,7 +89,7 @@ function CaseCard({ c }: { c: WorkCase }) {
 function PlaceholderImg({ src, kind, category }: { src: string; kind: "before" | "after"; category: string }) {
   const [failed, setFailed] = useState(false);
   const resolvedSrc = src.startsWith("data:") || src.startsWith("http") || src.startsWith("/") ? src : `/img/${src}`;
-  const isVideo = src.startsWith("data:video") || /\.(mp4|webm|mov|avi)(\?|$)/i.test(src);
+  const isVideo = isVideoSrc(src);
 
   if (!failed) {
     if (isVideo) {
@@ -123,7 +124,7 @@ function PlaceholderImg({ src, kind, category }: { src: string; kind: "before" |
       <div className="text-center px-4" style={{ color: after ? "var(--color-green-text)" : "#8a7b6a" }}>
         <div className="text-3xl mb-1">{after ? "✓" : "⚠"}</div>
         <div className="text-xs font-semibold uppercase tracking-wider">{after ? "After" : "Before"}</div>
-        <div className="text-[10px] opacity-70 mt-1">{category} · add photo</div>
+        <div className="text-[10px] opacity-70 mt-1">{category}</div>
       </div>
     </div>
   );

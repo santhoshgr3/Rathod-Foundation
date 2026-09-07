@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Hero from "../components/Hero";
 import PromiseStrip from "../components/PromiseStrip";
 import { CountUp, Icon, Reveal, SectionHead, SpotlightCard } from "../components/ui";
-import { helpCategories } from "../data/help";
 import { useT } from "../lib/i18n";
 import { getStats, type Stats } from "../lib/store";
 import { useCMS } from "../contexts/CMSContext";
@@ -18,7 +17,7 @@ const exploreCards = [
 
 export default function Home() {
   const { t, lang } = useT();
-  const { cms: { home } } = useCMS();
+  const { cms: { home, helpCategories } } = useCMS();
   const [stats, setStats] = useState<Stats>({ received: 0, verified: 0, resolved: 0, volunteers: 0, wards: 0, byCategory: [] });
 
   useEffect(() => {

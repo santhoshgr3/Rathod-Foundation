@@ -16,6 +16,35 @@ import {
   type ReactNode,
 } from "react";
 
+/**
+ * Invisible bot-trap field for public forms. Real visitors never see or fill
+ * it (off-screen, no tab stop); simple submission bots that auto-fill every
+ * input do. Render it inside the <form> and check `honeypot.isBot()` before
+ * submitting — if it's non-empty, block the submission AND show the user an
+ * error, so a false positive (e.g. an over-eager browser autofill) is visible
+ * and retryable rather than a silent drop.
+ *
+ * The field name is deliberately not a real address token like "website" or
+ * "url" — those get filled by Chrome's address-profile autofill even with
+ * autoComplete="off", which would make isBot() fire for a real person.
+ */
+export function useHoneypot() {
+  const ref = useRef<HTMLInputElement>(null);
+  const isBot = () => !!ref.current?.value;
+  const field = (
+    <input
+      ref={ref}
+      type="text"
+      name="rf-hp-check"
+      tabIndex={-1}
+      autoComplete="off"
+      aria-hidden="true"
+      style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }}
+    />
+  );
+  return { field, isBot };
+}
+
 /** Fade-and-rise wrapper that triggers once on scroll into view. */
 export function Reveal({
   children,

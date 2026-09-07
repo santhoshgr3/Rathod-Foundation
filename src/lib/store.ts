@@ -88,12 +88,17 @@ export async function listCases(): Promise<Case[]> {
   return (data as CaseRow[]).map(rowToCase);
 }
 
+// Public lookup — goes through the track_case() RPC so anonymous visitors
+// only ever get back the non-sensitive columns (never name/phone/details).
 export async function getCase(id: string): Promise<Case | undefined> {
   if (!supabase) return undefined;
   const norm = id.trim().toUpperCase();
-  const { data, error } = await supabase.from("cases").select("*");
+  if (!norm) return undefined;
+  const { data, error } = await supabase.rpc("track_case", { p_id: norm });
   if (error) { console.error("[store] getCase:", error); return undefined; }
-  return (data as CaseRow[]).map(rowToCase).find((c) => c.id.toUpperCase() === norm);
+  const row = (data as Partial<CaseRow>[] | null)?.[0];
+  if (!row) return undefined;
+  return rowToCase({ name: "", phone: "", details: "", lang: "en", ...row } as CaseRow);
 }
 
 export async function createCase(
@@ -107,14 +112,14 @@ export async function createCase(
     createdAt: now,
     timeline: [{ stage: "received", at: now, note: "Submitted online" }],
   };
-  if (!supabase) return c;
+  if (!supabase) throw new Error("Not connected — can't submit right now.");
   const { error } = await supabase.from("cases").insert({
     id: c.id, type: c.type, category: c.category, name: c.name,
     phone: c.phone, location: c.location, details: c.details, lang: c.lang,
     stage_index: c.stageIndex, outcome: c.outcome ?? null,
     timeline: c.timeline, created_at: c.createdAt,
   });
-  if (error) console.error("[store] createCase:", error);
+  if (error) { console.error("[store] createCase:", error); throw error; }
   return c;
 }
 
@@ -137,11 +142,11 @@ export async function updateCaseStage(id: string, stageIndex: number, note?: str
 // ── Volunteers ────────────────────────────────────────────────────────────────
 export async function saveVolunteer(input: Omit<Volunteer, "id" | "createdAt">): Promise<Volunteer> {
   const v: Volunteer = { ...input, id: makeTrackingId("VOL"), createdAt: new Date().toISOString() };
-  if (!supabase) return v;
+  if (!supabase) throw new Error("Not connected — can't submit right now.");
   const { error } = await supabase.from("volunteers").insert({
     id: v.id, name: v.name, phone: v.phone, area: v.area, skills: v.skills, created_at: v.createdAt,
   });
-  if (error) console.error("[store] saveVolunteer:", error);
+  if (error) { console.error("[store] saveVolunteer:", error); throw error; }
   return v;
 }
 
@@ -157,17 +162,18 @@ export async function listVolunteers(): Promise<Volunteer[]> {
 // ── Suggestions ───────────────────────────────────────────────────────────────
 export async function saveSuggestion(input: Omit<Suggestion, "id" | "createdAt">): Promise<Suggestion> {
   const s: Suggestion = { ...input, id: makeTrackingId("SUG"), createdAt: new Date().toISOString() };
-  if (!supabase) return s;
+  if (!supabase) throw new Error("Not connected — can't submit right now.");
   const { error } = await supabase.from("suggestions").insert({
     id: s.id, kind: s.kind, text: s.text, area: s.area, created_at: s.createdAt,
   });
-  if (error) console.error("[store] saveSuggestion:", error);
+  if (error) { console.error("[store] saveSuggestion:", error); throw error; }
   return s;
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
-const BASE_VOLUNTEERS = 48;
-const BASE_WARDS = 7;
+// Public-facing (Dashboard page): both go through SECURITY DEFINER RPCs, so
+// anonymous visitors get aggregate counts / limited fields only — never the
+// raw cases/volunteers tables (name, phone, issue details).
 
 export type Stats = {
   received: number; verified: number; resolved: number;
@@ -175,23 +181,27 @@ export type Stats = {
   byCategory: { category: string; count: number }[];
 };
 
+export const EMPTY_STATS: Stats = { received: 0, verified: 0, resolved: 0, volunteers: 0, wards: 0, byCategory: [] };
+
 export async function getStats(): Promise<Stats> {
-  const [cases, volunteers] = await Promise.all([listCases(), listVolunteers()]);
-  const verified = cases.filter((c) => c.stageIndex >= 2).length;
-  const resolved = cases.filter((c) => c.stageIndex >= 4).length;
-  const byMap = new Map<string, number>();
-  const wardSet = new Set<string>();
-  for (const c of cases) {
-    byMap.set(c.category, (byMap.get(c.category) ?? 0) + 1);
-    if (c.location) wardSet.add(c.location);
-  }
-  const byCategory = [...byMap.entries()]
-    .map(([category, count]) => ({ category, count }))
-    .sort((a, b) => b.count - a.count);
+  if (!supabase) return EMPTY_STATS;
+  const { data, error } = await supabase.rpc("public_stats").single();
+  if (error) { console.error("[store] getStats:", error); return EMPTY_STATS; }
+  const row = data as { received: number; verified: number; resolved: number; volunteers: number; wards: number; by_category: { category: string; count: number }[] };
   return {
-    received: cases.length, verified, resolved,
-    volunteers: BASE_VOLUNTEERS + volunteers.length,
-    wards: Math.max(BASE_WARDS, wardSet.size),
-    byCategory,
+    received: row.received, verified: row.verified, resolved: row.resolved,
+    volunteers: row.volunteers, wards: row.wards,
+    byCategory: row.by_category ?? [],
   };
+}
+
+export type RecentActivity = { id: string; type: CaseType; category: string; location: string; stageIndex: number; createdAt: string };
+
+export async function getRecentActivity(limit = 6): Promise<RecentActivity[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc("recent_activity", { p_limit: limit });
+  if (error) { console.error("[store] getRecentActivity:", error); return []; }
+  return (data as { id: string; type: CaseType; category: string; location: string; stage_index: number; created_at: string }[]).map((r) => ({
+    id: r.id, type: r.type, category: r.category, location: r.location, stageIndex: r.stage_index, createdAt: r.created_at,
+  }));
 }

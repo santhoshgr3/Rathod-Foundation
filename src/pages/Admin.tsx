@@ -3,18 +3,27 @@ import { Link } from "react-router-dom";
 import { useCMS } from "../contexts/CMSContext";
 import { uid, type CMSGalleryPhoto, type CMSTimelineEntry, type CMSWard, type CMSStat, type CMSWorkCase, type CMSChairman, type CMSStep, type CMSPageHeader, type CMSHome, type CMSHelpCategory, type CMSCampaign } from "../lib/cms";
 import { listCases, listVolunteers, updateCaseStage, STAGES, type Case as CaseT, type Volunteer as VolunteerT } from "../lib/store";
-import { uploadMedia } from "../lib/upload";
+import { uploadMedia, isVideoSrc } from "../lib/upload";
+import { supabase } from "../lib/supabase";
 
 // ── Auth gate ─────────────────────────────────────────────────────────────────
-function LoginGate({ password, onLogin }: { password: string; onLogin: () => void }) {
+// Real Supabase Auth — the password is never stored in a client-readable table.
+function LoginGate({ onLogin }: { onLogin: () => void }) {
+  const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
-  const [err, setErr] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pw === password) { onLogin(); setErr(false); }
-    else { setErr(true); setPw(""); }
+    if (busy || !supabase) return;
+    setBusy(true);
+    setErr(null);
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: pw });
+    setBusy(false);
+    if (error) { setErr("Incorrect email or password — please try again"); setPw(""); return; }
+    onLogin();
   };
 
   return (
@@ -77,12 +86,27 @@ function LoginGate({ password, onLogin }: { password: string; onLogin: () => voi
 
           <form onSubmit={submit} className="space-y-4">
             <div>
+              <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--color-ink)" }}>Admin Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setErr(null); }}
+                placeholder="you@rathodfoundation.in"
+                className="w-full rounded-xl px-4 py-3.5 text-sm outline-none transition-all"
+                style={{
+                  border: `2px solid ${err ? "#ef4444" : email ? "var(--color-saffron)" : "var(--color-line)"}`,
+                  background: "#fff",
+                }}
+                autoFocus
+              />
+            </div>
+            <div>
               <label className="block text-sm font-semibold mb-1.5" style={{ color: "var(--color-ink)" }}>Admin Password</label>
               <div className="relative">
                 <input
                   type={show ? "text" : "password"}
                   value={pw}
-                  onChange={(e) => { setPw(e.target.value); setErr(false); }}
+                  onChange={(e) => { setPw(e.target.value); setErr(null); }}
                   placeholder="Enter your password"
                   className="w-full rounded-xl px-4 py-3.5 text-sm outline-none pr-12 transition-all"
                   style={{
@@ -90,7 +114,6 @@ function LoginGate({ password, onLogin }: { password: string; onLogin: () => voi
                     background: "#fff",
                     boxShadow: err ? "0 0 0 3px rgba(239,68,68,0.1)" : pw ? "0 0 0 3px rgba(255,153,51,0.12)" : "none",
                   }}
-                  autoFocus
                 />
                 <button
                   type="button"
@@ -103,17 +126,18 @@ function LoginGate({ password, onLogin }: { password: string; onLogin: () => voi
               </div>
               {err && (
                 <p className="mt-2 text-xs font-medium flex items-center gap-1.5 text-red-600">
-                  <span>⚠️</span> Incorrect password — please try again
+                  <span>⚠️</span> {err}
                 </p>
               )}
             </div>
 
             <button
               type="submit"
-              className="w-full rounded-xl py-3.5 font-bold text-sm text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              disabled={busy}
+              className="w-full rounded-xl py-3.5 font-bold text-sm text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
               style={{ background: "var(--color-saffron)", boxShadow: "0 4px 14px rgba(255,153,51,0.35)" }}
             >
-              Sign in to Admin Panel →
+              {busy ? "Signing in…" : "Sign in to Admin Panel →"}
             </button>
           </form>
 
@@ -351,6 +375,7 @@ function SiteInfoTab() {
     location: cms.leader.location,
     email: cms.leader.email,
     whatsapp: cms.leader.whatsapp,
+    languages: cms.leader.languages.join(", "),
     phone0: cms.leader.phones[0] ?? "",
     phone1: cms.leader.phones[1] ?? "",
     siteUrl: cms.leader.siteUrl ?? "",
@@ -359,7 +384,6 @@ function SiteInfoTab() {
     youtube: cms.leader.youtube ?? "",
     twitter: cms.leader.twitter ?? "",
     bioIntro: cms.bio.intro,
-    newPassword: "",
   }));
   const [saved, setSaved] = useState(false);
 
@@ -378,6 +402,7 @@ function SiteInfoTab() {
         location: local.location,
         email: local.email,
         whatsapp: local.whatsapp,
+        languages: local.languages.split(",").map((s) => s.trim()).filter(Boolean),
         phones: [local.phone0, local.phone1].filter(Boolean),
         siteUrl: local.siteUrl,
         facebook: local.facebook,
@@ -386,7 +411,6 @@ function SiteInfoTab() {
         twitter: local.twitter,
       },
       bio: { ...prev.bio, intro: local.bioIntro },
-      adminPassword: local.newPassword || prev.adminPassword,
     }));
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
@@ -420,6 +444,9 @@ function SiteInfoTab() {
           <Field label="Email"><input className={inp} value={local.email} onChange={set("email")} /></Field>
           <Field label="WhatsApp number (digits only)"><input className={inp} value={local.whatsapp} onChange={set("whatsapp")} /></Field>
         </div>
+        <Field label="Languages spoken (comma-separated — shown on the About page)">
+          <input className={inp} value={local.languages} onChange={set("languages")} placeholder="English, Hindi, Telugu" />
+        </Field>
 
         <div className="border-t pt-4" style={{ borderColor: "var(--color-line)" }}>
           <h3 className="font-semibold mb-3 text-sm">Website & Social Media</h3>
@@ -455,15 +482,40 @@ function SiteInfoTab() {
           </Field>
         </div>
 
-        <div className="border-t pt-4" style={{ borderColor: "var(--color-line)" }}>
-          <h3 className="font-semibold mb-3 text-sm">Change admin password</h3>
-          <Field label="New password (leave blank to keep current)">
-            <input type="password" className={inp} value={local.newPassword} onChange={set("newPassword")} placeholder="••••••••" />
-          </Field>
-        </div>
+        <ChangePassword />
 
         <button onClick={save} className={btn("saffron") + " px-5 py-2.5 text-sm"}>Save changes</button>
       </div>
+    </div>
+  );
+}
+
+/* Change the signed-in admin's own Supabase Auth password. */
+function ChangePassword() {
+  const [pw, setPw] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const submit = async () => {
+    if (busy || pw.length < 8) { setMsg({ ok: false, text: "Password must be at least 8 characters." }); return; }
+    setBusy(true);
+    setMsg(null);
+    const { error } = await supabase!.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) { setMsg({ ok: false, text: error.message }); return; }
+    setPw("");
+    setMsg({ ok: true, text: "Password updated." });
+  };
+
+  return (
+    <div className="border-t pt-4" style={{ borderColor: "var(--color-line)" }}>
+      <h3 className="font-semibold mb-1 text-sm">Change admin password</h3>
+      <p className="text-xs mb-3" style={{ color: "var(--color-muted)" }}>Updates your Supabase Auth sign-in password immediately — separate from the fields above.</p>
+      <div className="flex gap-2 max-w-sm">
+        <input type="password" className={inp} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="New password (min 8 characters)" />
+        <button onClick={submit} disabled={busy} className={btn("ghost") + " shrink-0 disabled:opacity-60"}>{busy ? "…" : "Update"}</button>
+      </div>
+      {msg && <p className={`text-xs mt-2 font-medium ${msg.ok ? "text-green-700" : "text-red-600"}`}>{msg.text}</p>}
     </div>
   );
 }
@@ -621,7 +673,11 @@ function useMediaUpload(onResult: (url: string) => void, accept = "image/*,video
     if (!file) return;
     const mb = file.size / (1024 * 1024);
     const isVideo = file.type.startsWith("video/");
-    const limit = isVideo ? 200 : 15;
+    // Supabase's free-tier storage plan hard-caps every file at 50 MB
+    // regardless of the bucket's configured limit — matching that here so
+    // the client-side check doesn't let through uploads that the backend
+    // will then reject with a confusing error.
+    const limit = isVideo ? 50 : 15;
     if (mb > limit) {
       setSizeWarn(`File is ${mb.toFixed(1)} MB — max ${limit} MB for ${isVideo ? "video" : "image"}. For larger videos use a hosted URL instead.`);
       return;
@@ -718,7 +774,7 @@ function GalleryTab() {
             {newUpload.input}
             {newPhoto.src.startsWith("data:") || newPhoto.src.startsWith("http") ? (
               <div className="relative inline-block w-full">
-                {newPhoto.src.startsWith("data:video") || /\.(mp4|webm|mov|avi)(\?|$)/i.test(newPhoto.src) ? (
+                {isVideoSrc(newPhoto.src) ? (
                   <video src={newPhoto.src} controls className="w-full max-h-48 rounded-xl bg-black" />
                 ) : (
                   <img src={newPhoto.src} alt="preview" className="w-full h-40 rounded-xl object-cover border" style={{ borderColor: "var(--color-line)" }} />
@@ -737,7 +793,7 @@ function GalleryTab() {
               >
                 <span className="text-3xl">{newUpload.uploading ? "⏳" : "🎬"}</span>
                 <span className="text-sm font-medium">{newUpload.uploading ? "Reading file…" : "Click to choose image or video"}</span>
-                <span className="text-xs">JPG · PNG · WEBP (max 15 MB) &nbsp;·&nbsp; MP4 · MOV · WEBM (max 200 MB)</span>
+                <span className="text-xs">JPG · PNG · WEBP (max 15 MB) &nbsp;·&nbsp; MP4 · MOV · WEBM (max 50 MB)</span>
               </button>
             )}
             {newUpload.sizeWarn && <p className="text-xs text-red-600 mt-1">{newUpload.sizeWarn}</p>}
@@ -751,7 +807,7 @@ function GalleryTab() {
               placeholder="/img/my-photo.jpg  or  https://example.com/video.mp4"
             />
             {newPhoto.src && !newPhoto.src.startsWith("data:") && (
-              /\.(mp4|webm|mov|avi)$/i.test(newPhoto.src)
+              isVideoSrc(newPhoto.src)
                 ? <video src={newPhoto.src} controls className="mt-2 w-full max-h-36 rounded-lg bg-black" />
                 : <img src={newPhoto.src} alt="" className="mt-2 h-28 rounded-lg object-cover w-full" onError={(e) => { e.currentTarget.style.display = "none"; }} />
             )}
@@ -802,7 +858,7 @@ function ExistingPhotoRow({
   onRemove: (id: string) => void;
 }) {
   const replaceUpload = useMediaUpload((base64) => onUpdateField(photo.id, "src", base64));
-  const isVideo = photo.src.startsWith("data:video") || /\.(mp4|webm|mov|avi)(\?|$)/i.test(photo.src);
+  const isVideo = isVideoSrc(photo.src);
   const srcLabel = photo.src.startsWith("data:") ? (isVideo ? "📎 Uploaded video" : "📎 Uploaded image") : photo.src;
 
   return (
@@ -934,9 +990,7 @@ function WorkCaseMediaField({
 }) {
   const isData = value.startsWith("data:");
   const isUploaded = isData || value.startsWith("http");
-  const isVideo = isData
-    ? value.startsWith("data:video")
-    : /\.(mp4|webm|mov|avi|mkv)(\?|$)/i.test(value);
+  const isVideo = isVideoSrc(value);
   const [mode, setMode] = useState<"upload" | "url">(isUploaded || !value ? "upload" : "url");
   const upload = useMediaUpload((url) => { onChange(url); setMode("upload"); });
 
@@ -987,7 +1041,7 @@ function WorkCaseMediaField({
             >
               <span className="text-2xl">{upload.uploading ? "⏳" : "🖼️"}</span>
               <span className="text-xs font-medium">{upload.uploading ? "Reading file…" : "Click to upload image or video"}</span>
-              <span className="text-[10px]">JPG · PNG (max 15 MB) · MP4 · MOV (max 200 MB)</span>
+              <span className="text-[10px]">JPG · PNG (max 15 MB) · MP4 · MOV (max 50 MB)</span>
             </button>
           )}
           {upload.sizeWarn && <p className="text-xs text-red-600">{upload.sizeWarn}</p>}
@@ -1635,6 +1689,54 @@ function CampaignsTab() {
   );
 }
 
+// ── Tab: Report Categories ────────────────────────────────────────────────────
+function ReportCategoriesTab() {
+  const { cms, updateCMS } = useCMS();
+  const [saved, setSaved] = useState(false);
+  const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
+
+  const update = (i: number, val: string) =>
+    updateCMS((p) => { const list = [...p.reportCategories]; list[i] = val; return { ...p, reportCategories: list }; });
+
+  const remove = (i: number) => { updateCMS((p) => ({ ...p, reportCategories: p.reportCategories.filter((_, idx) => idx !== i) })); flash(); };
+  const add = () => { updateCMS((p) => ({ ...p, reportCategories: [...p.reportCategories, "New category"] })); flash(); };
+
+  const move = (i: number, dir: -1 | 1) =>
+    updateCMS((p) => {
+      const list = [...p.reportCategories];
+      const j = i + dir;
+      if (j < 0 || j >= list.length) return p;
+      [list[i], list[j]] = [list[j], list[i]];
+      return { ...p, reportCategories: list };
+    });
+
+  return (
+    <div className="max-w-xl">
+      <SaveBanner saved={saved} />
+      <h2 className="text-xl font-display font-bold mb-1">Report Issue Categories</h2>
+      <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>
+        The issue types residents pick from in the “Report an issue” form. The first one is the default selection.
+      </p>
+      <div className="space-y-2 mb-4">
+        {cms.reportCategories.map((c, i) => (
+          <div key={i} className="flex gap-2 items-center">
+            <div className="flex flex-col">
+              <button onClick={() => move(i, -1)} disabled={i === 0} className="text-xs leading-none disabled:opacity-20" aria-label="Move up">▲</button>
+              <button onClick={() => move(i, 1)} disabled={i === cms.reportCategories.length - 1} className="text-xs leading-none disabled:opacity-20" aria-label="Move down">▼</button>
+            </div>
+            <input className={inp + " flex-1"} value={c} onChange={(e) => update(i, e.target.value)} />
+            <button onClick={() => remove(i)} className={btn("red")}>✕</button>
+          </div>
+        ))}
+      </div>
+      <button onClick={add} className={btn("saffron")}>+ Add category</button>
+      {cms.reportCategories.length === 0 && (
+        <p className="text-xs mt-3 text-red-600">Add at least one category — the report form needs it.</p>
+      )}
+    </div>
+  );
+}
+
 // ── Nav config ────────────────────────────────────────────────────────────────
 const NAV_GROUPS = [
   {
@@ -1663,9 +1765,10 @@ const NAV_GROUPS = [
       { key: "works",      label: "Work Cases",       icon: "🔨" },
       { key: "stats",      label: "Stats & Ticker",   icon: "📈" },
       { key: "wards",      label: "Ward Data",        icon: "🗺️" },
-      { key: "steps",      label: "Process Steps",    icon: "📋" },
-      { key: "helpcats",   label: "Help Categories",  icon: "🤝" },
-      { key: "campaigns",  label: "Campaigns",        icon: "📣" },
+      { key: "steps",      label: "Process Steps",     icon: "📋" },
+      { key: "helpcats",   label: "Help Categories",   icon: "🤝" },
+      { key: "reportcats", label: "Report Categories", icon: "📝" },
+      { key: "campaigns",  label: "Campaigns",         icon: "📣" },
     ],
   },
   {
@@ -1676,7 +1779,7 @@ const NAV_GROUPS = [
   },
 ] as const;
 
-type TabKey = "overview" | "submissions" | "volunteers" | "home" | "allpages" | "site" | "chairman" | "bio" | "gallery" | "timeline" | "works" | "stats" | "wards" | "steps" | "helpcats" | "campaigns" | "reset";
+type TabKey = "overview" | "submissions" | "volunteers" | "home" | "allpages" | "site" | "chairman" | "bio" | "gallery" | "timeline" | "works" | "stats" | "wards" | "steps" | "helpcats" | "reportcats" | "campaigns" | "reset";
 
 // ── Sidebar nav ───────────────────────────────────────────────────────────────
 function SidebarNav({ tab, setTab, onClose }: { tab: TabKey; setTab: (t: TabKey) => void; onClose?: () => void }) {
@@ -1750,10 +1853,17 @@ function SidebarNav({ tab, setTab, onClose }: { tab: TabKey; setTab: (t: TabKey)
 
 // ── Main Admin page ───────────────────────────────────────────────────────────
 export default function Admin() {
-  const { cms } = useCMS();
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem("rf_admin") === "1");
+  const [authed, setAuthed] = useState<boolean | null>(null); // null = checking session
   const [tab, setTab] = useState<TabKey>("overview");
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Real Supabase Auth session — not a client-side password check.
+  useEffect(() => {
+    if (!supabase) { setAuthed(false); return; }
+    supabase.auth.getSession().then(({ data }) => setAuthed(!!data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => setAuthed(!!session));
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   // Allow OverviewTab quick-action buttons to navigate tabs
   useEffect(() => {
@@ -1762,16 +1872,19 @@ export default function Admin() {
     return () => window.removeEventListener("rf-admin-tab", handler);
   }, []);
 
-  if (!authed) {
+  if (authed === null) {
     return (
-      <LoginGate
-        password={cms.adminPassword}
-        onLogin={() => { sessionStorage.setItem("rf_admin", "1"); setAuthed(true); }}
-      />
+      <div className="min-h-screen grid place-items-center" style={{ background: "#f8f7f5" }}>
+        <div className="w-8 h-8 rounded-full border-4 animate-spin" style={{ borderColor: "var(--color-saffron)", borderTopColor: "transparent" }} />
+      </div>
     );
   }
 
-  const logout = () => { sessionStorage.removeItem("rf_admin"); setAuthed(false); };
+  if (!authed) {
+    return <LoginGate onLogin={() => setAuthed(true)} />;
+  }
+
+  const logout = () => { supabase?.auth.signOut(); setAuthed(false); };
 
   const allItems = NAV_GROUPS.flatMap((g) => [...g.items]) as { key: string; label: string; icon: string }[];
   const currentItem = allItems.find((i) => i.key === tab);
@@ -1864,6 +1977,7 @@ export default function Admin() {
           {tab === "submissions" && <SubmissionsTab />}
           {tab === "volunteers"  && <VolunteersTab />}
           {tab === "helpcats"    && <HelpCategoriesTab />}
+          {tab === "reportcats"  && <ReportCategoriesTab />}
           {tab === "campaigns"   && <CampaignsTab />}
           {tab === "reset"       && <ResetTab />}
         </main>

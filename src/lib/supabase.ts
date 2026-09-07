@@ -10,6 +10,7 @@ export const supabaseEnabled = Boolean(url && anonKey);
 
 export const supabase: SupabaseClient | null = supabaseEnabled
   ? createClient(url as string, anonKey as string, {
-      auth: { persistSession: false },
+      // Persisted so an admin's Supabase Auth session survives a page reload.
+      auth: { persistSession: true },
     })
   : null;
